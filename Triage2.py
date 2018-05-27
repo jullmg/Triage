@@ -8,7 +8,7 @@ import stat
 from string import capwords
 
 
-#testest
+#testestpatate
 class Item_to_process:
 
     def __init__(self,nom_fichier,location):
