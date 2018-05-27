@@ -7,14 +7,6 @@ from os import rename, path
 import stat
 from string import capwords
 
-
-
-
-
-#def purge(item, path):
-
-
-
 class Item_to_process:
 
     def __init__(self,nom_fichier,location):
