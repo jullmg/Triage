@@ -1,13 +1,14 @@
 '''Version : 1.1 '''
 
-#a faire : lire plus qu'un dossier de profondeur
+#a faire :
+# lire plus qu'un dossier de profondeur
+#Synchronisation sur base de donnee sur le web?
+
 
 import os
 from os import rename, path
 import stat
 from string import capwords
-
-#ceci est dans recherche-recursive
 
 class Item_to_process:
 
@@ -22,93 +23,6 @@ class Item_to_process:
         self._prefixe, self._extension = os.path.splitext(self._path_complet)
 
         print('on process: ' + self._nom_fichier)
-
-
-    def seasonid(self):
-
-        scanner = 0
-
-        while True:
-
-            try:
-
-                if (self._nom_fichier[scanner] == 's' or self._nom_fichier[scanner] == 'S') and (self._nom_fichier[(scanner + 1)] in str(list(range(0, 10)))) and self._nom_fichier[(scanner - 1)] == '.':
-
-                    season_episode = ''.join(self._nom_fichier[scanner:(scanner + 6)])
-
-                    title = ''.join(self._nom_fichier[0:scanner])
-
-                    print('{} detecte {}{}'.format(''.join(self._nom_fichier), title, season_episode))
-                    break
-
-                scanner += 1
-
-            except IndexError:
-                print('ERROR : aucune saison trouve dans {} (.seasonid1)'.format(''.join(self._nom_fichier)))
-                break
-
-    def seasonid2(self):
-
-        scanner = 0
-
-        season_episode = None
-
-        for lettre in self._nom_fichier:
-
-            if (self._nom_fichier[scanner] == 's' or self._nom_fichier[scanner] == 'S') and (self._nom_fichier[(scanner + 1)] in str(list(range(0, 10)))) and self._nom_fichier[(scanner - 1)] == '.':
-
-                season_episode = ''.join(self._nom_fichier[scanner:(scanner + 6)])
-                print('{} |detecte| {}'.format(''.join(self._nom_fichier), season_episode))
-                break
-
-            scanner += 1
-
-        if season_episode == None:
-
-            print('aucune saison trouve dans {} (.seasonid2)'.format(''.join(self._nom_fichier)))
-
-    def seasonid3(self):
-
-        longeur_nom_fichier = len(self._nom_fichier)
-
-
-        # dossier destination pour les films
-        movies_pathto = ('{}\{}'.format(dossier_films, self._nom_fichier))
-
-        season_episode = None
-
-        for i in range(0,longeur_nom_fichier):
-
-            self._nom_fichier = list(self._nom_fichier)
-
-            if (self._nom_fichier[i] in ['s','S']) and (self._nom_fichier[(i + 1)] in str(list(range(0, 10)))) and \
-                    self._nom_fichier[(i - 1)] == '.':
-
-                series_episode = ''.join(self._nom_fichier[i:(i + 6)])
-
-                series_title = ''.join(self._nom_fichier[0:i])
-
-                [print('b') if n == '.' else False for n in series_title]
-
-
-                series_pathto = ('{}\{}\{}'.format(dossier_series, series_title, self._nom_fichier))
-
-                print('{} |detecte| {} {} (.seasonid3)'.format(''.join(self._nom_fichier),series_title, series_episode))
-
-                #rename(self._path_complet, series_pathto)
-
-            if self._nom_fichier[i] in ['1', '2'] and self._nom_fichier[i + 1] in str(list(range(0, 10))) \
-                  and self._nom_fichier[i + 2] in str(list(range(0, 10))) and self._nom_fichier[i + 3] in str(list(range(0, 10))) \
-                  and (self._nom_fichier[i - 1]) in ['.', '(', '[', '-', ' ']:
-
-                movie_title = ''.join(self._nom_fichier[0:i - 2])
-
-                movie_year = ''.join(self._nom_fichier[i:i + 4])
-
-                print('{} |detecte| {} {} (.seasonid3)'.format(''.join(self._nom_fichier), movie_title, movie_year))
-
-                # Deplacement du film vers le dossier film
-                rename(self._path_complet, movies_pathto)
 
     def classify(self):
 
@@ -228,7 +142,6 @@ class Item_to_process:
                 print('erreur de permission, deplacement au purgatoire')
                 os.rename(self._path_complet, purgatoire)
 
-
 source = os.getcwd()
 
 dossier_films = '{}\Films'.format(source)
@@ -237,7 +150,19 @@ dossier_series = '{}\Series'.format(source)
 
 dossiers_base = ['purgatoire','Films','Series']
 
+
+
 dossiers = os.listdir(source)
+
+root = os.walk(source)
+
+for racine, directories, fichiers in root:
+
+    #print(racine)
+    #print(directories)
+    #print(fichiers)
+    for i in fichiers:
+        print(os.path.join(racine, i))
 
 #Creation des fichiers de base si necessaire
 for i in dossiers_base:
@@ -246,7 +171,12 @@ for i in dossiers_base:
 
         os.makedirs('{}\{}'.format(source, i))
 
-#iteration sur chaqun des items a la source
+
+
+
+
+
+quit()
 for items in dossiers :
 
     #path de l'item itere
