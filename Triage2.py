@@ -23,7 +23,6 @@ class Item_to_process:
 
         self._prefixe, self._extension = os.path.splitext(self._path_complet)
 
-        print('on process: ' + self._nom_fichier)
 
     def classify(self):
 
@@ -44,11 +43,7 @@ class Item_to_process:
 
                     series_episode = series_episode.upper()
 
-                    print('series_episode: ' + series_episode)
-
                     series_title = ''.join(self._nom_fichier[0:(i-1)])
-
-                    print('series_title: ' + series_title)
 
                     series_title_clean = ''
 
@@ -75,18 +70,20 @@ class Item_to_process:
                     # Si le dossier qui contient la saison n'existe pas, on le cree et finalement on deplace vers celui-ci
                     if os.path.isdir('{}\{}\{}'.format(dossier_series, series_title_clean, seasons_folder)):
 
-                        rename(self._path_complet, series_pathto)
+                        print(self._path_complet + '-->' + series_pathto)
+                        if simulation == False:
+                            rename(self._path_complet, series_pathto)
 
                     else:
 
                         os.makedirs('{}\{}\{}'.format(dossier_series, series_title_clean, seasons_folder))
-                        rename(self._path_complet, series_pathto)
 
-                    print('{} |detecte| {} {} (.seasonid3)'.format(''.join(self._nom_fichier), series_title, series_episode))
+                        print(self._path_complet + '-->' + series_pathto)
+                        if simulation == False:
+                            rename(self._path_complet, series_pathto)
 
             except IndexError:
                 pass
-
 
             # On detecte un film en trouvant une annee
 
@@ -116,10 +113,10 @@ class Item_to_process:
                     # dossier destination pourn les films
                     movies_pathto = ('{}\{} ({}){}'.format(dossier_films, movie_title, movie_year, self._extension))
 
-                    print('{} |detecte| {} {} (.seasonid3)'.format(''.join(self._nom_fichier), movie_title, movie_year))
-
                     # Deplacement du film vers le dossier film
-                    rename(self._path_complet, movies_pathto)
+                    print(self._path_complet + '-->' + movies_pathto)
+                    if simulation == False:
+                        rename(self._path_complet, movies_pathto)
 
             except:
 
@@ -135,15 +132,20 @@ class Item_to_process:
 
             try:
 
-                os.remove(self._path_complet)
                 print('supression du fichier: ' + self._nom_fichier)
+
+                if simulation == False:
+                    os.remove(self._path_complet)
+
 
             except PermissionError:
 
                 print('erreur de permission, deplacement au purgatoire')
-                os.rename(self._path_complet, purgatoire)
 
-simulation = False
+                if simulation == False:
+                    os.rename(self._path_complet, purgatoire)
+
+simulation = True
 
 source = 'd:\\downloads\\triage'
 
@@ -161,20 +163,15 @@ root = os.walk(source)
 
 for racine, directories, fichiers in root:
 
-    #print(racine)
-    #print(directories)
-    #print(fichiers)
     for fichier in fichiers:
 
-        #print(os.path.join(source, 'Series'))
         if racine[0:(len(source)+7)] != os.path.join(source,'Series') and racine[0:(len(source)+6)] != os.path.join(source,'Films'):
 
-            print(os.path.join(racine, fichier))
             individu = Item_to_process(fichier, racine)
             individu.purge()
             individu.classify()
 
-
+#On fait le menage des dossiers vides
 for dossier in os.listdir(source):
 
     if dossier not in dossiers_base:
