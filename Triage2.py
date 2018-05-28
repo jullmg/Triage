@@ -2,7 +2,8 @@
 
 #a faire :
 # lire plus qu'un dossier de profondeur
-#Synchronisation sur base de donnee sur le web?
+# mode simulation
+# Synchronisation sur base de donnee sur le web?
 
 
 import os
@@ -142,7 +143,9 @@ class Item_to_process:
                 print('erreur de permission, deplacement au purgatoire')
                 os.rename(self._path_complet, purgatoire)
 
-source = os.getcwd()
+simulation = False
+
+source = 'd:\\downloads\\triage'
 
 dossier_films = '{}\Films'.format(source)
 
@@ -161,8 +164,28 @@ for racine, directories, fichiers in root:
     #print(racine)
     #print(directories)
     #print(fichiers)
-    for i in fichiers:
-        print(os.path.join(racine, i))
+    for fichier in fichiers:
+
+        #print(os.path.join(source, 'Series'))
+        if racine[0:(len(source)+7)] != os.path.join(source,'Series') and racine[0:(len(source)+6)] != os.path.join(source,'Films'):
+
+            print(os.path.join(racine, fichier))
+            individu = Item_to_process(fichier, racine)
+            individu.purge()
+            individu.classify()
+
+
+for dossier in os.listdir(source):
+
+    if dossier not in dossiers_base:
+
+        print('Supression du dossier ' + (os.path.join(source, dossier)))
+
+        if simulation == False:
+            os.removedirs(os.path.join(source, dossier))
+
+
+quit()
 
 #Creation des fichiers de base si necessaire
 for i in dossiers_base:
@@ -171,12 +194,6 @@ for i in dossiers_base:
 
         os.makedirs('{}\{}'.format(source, i))
 
-
-
-
-
-
-quit()
 for items in dossiers :
 
     #path de l'item itere
