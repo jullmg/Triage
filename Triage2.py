@@ -30,16 +30,24 @@ class Item_to_process:
 
         range_1_a_10 = str(list(range(0, 10)))
         
-        season_episode = None
+        type_detecte = None
 
         for i, n in enumerate(self._nom_fichier):
 
             # On detecte si c'est une serie televisee en detectant le pattern S0102
             try:
 
-                if (self._nom_fichier[i] in ['s', 'S']) and (self._nom_fichier[(i + 1)] in range_1_a_10) and (self._nom_fichier[(i - 1)] in ['.', ' ']):
+                if (self._nom_fichier[i] in ['s', 'S', 'E', 'e']) and (self._nom_fichier[(i + 1)] in range_1_a_10) and (self._nom_fichier[(i - 1)] in ['.', ' ']):
 
-                    series_episode = ''.join(self._nom_fichier[i:(i + 6)])
+                    type_detecte = 'Serie'
+
+                    if self._nom_fichier[i] in ['E', 'e']:
+
+                        series_episode = ('S01' + self._nom_fichier[i:(i + 3)])
+
+                    else:
+
+                        series_episode = ''.join(self._nom_fichier[i:(i + 6)])
 
                     series_episode = series_episode.upper()
 
@@ -78,9 +86,11 @@ class Item_to_process:
 
                         os.makedirs('{}\{}\{}'.format(dossier_series, series_title_clean, seasons_folder))
 
-                        print(self._path_complet + '-->' + series_pathto)
+                        print(self._path_complet + ' --> ' + series_pathto)
                         if simulation == False:
                             rename(self._path_complet, series_pathto)
+
+
 
             except IndexError:
                 pass
@@ -91,6 +101,8 @@ class Item_to_process:
                 if self._nom_fichier[i] in ['1', '2'] and self._nom_fichier[i + 1] in str(list(range(0, 10))) \
                         and self._nom_fichier[i + 2] in range_1_a_10 and self._nom_fichier[i + 3] in range_1_a_10 \
                         and (self._nom_fichier[i - 1]) in ['.', '(', '[', '-', ' ']:
+
+                    type_detecte = "Film"
 
                     movie_title = ''
 
@@ -114,13 +126,20 @@ class Item_to_process:
                     movies_pathto = ('{}\{} ({}){}'.format(dossier_films, movie_title, movie_year, self._extension))
 
                     # Deplacement du film vers le dossier film
-                    print(self._path_complet + '-->' + movies_pathto)
+                    print(self._path_complet + ' --> ' + movies_pathto)
                     if simulation == False:
                         rename(self._path_complet, movies_pathto)
 
             except:
 
                 pass
+
+        if type_detecte == None:
+
+            print('Au purgatoire: ' + self._nom_fichier)
+
+            if simulation == False:
+                os.rename(self._path_complet, purgatoire)
 
     def purge(self):
 
