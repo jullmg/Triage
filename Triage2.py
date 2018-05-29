@@ -2,13 +2,14 @@
 
 #a faire :
 
-# Synchronisation sur base de donnee sur le web? Pour chercher posters et sous-titres
+# Synchronisation sur base de donnee sur le web? Pour chercher posters et sous-titres et nom episodes
 
 
 import os
 from os import rename, path
 import stat
 from string import capwords
+import shutil
 
 class Item_to_process:
 
@@ -21,6 +22,8 @@ class Item_to_process:
         self._path_complet = os.path.join(self._location, self._nom_fichier)
 
         self._prefixe, self._extension = os.path.splitext(self._path_complet)
+
+        self._purgatoire = '{}\purgatoire\{}'.format(source, self._nom_fichier)
 
 
     def classify(self):
@@ -136,15 +139,16 @@ class Item_to_process:
         if type_detecte == None:
 
             print('Au purgatoire: ' + self._nom_fichier)
+            print(self._purgatoire)
 
             if simulation == False:
-                os.rename(self._path_complet, purgatoire)
+                os.rename(self._path_complet, self._purgatoire)
 
     def purge(self):
 
         indesirables = ['.txt', '.nfo', '.jpg', '.sfv']
 
-        purgatoire = '{}\purgatoire\{}'.format(source, self._nom_fichier)
+
 
         if self._extension in indesirables and self._nom_fichier not in os.listdir('{}\purgatoire'.format(source)):
 
@@ -161,9 +165,9 @@ class Item_to_process:
                 print('erreur de permission, deplacement au purgatoire')
 
                 if simulation == False:
-                    os.rename(self._path_complet, purgatoire)
+                    os.rename(self._path_complet, self._purgatoire)
 
-simulation = True
+simulation = False
 
 source = 'd:\\downloads\\triage'
 
@@ -178,6 +182,13 @@ dossiers_base = ['purgatoire','Films','Series']
 dossiers = os.listdir(source)
 
 root = os.walk(source)
+
+#Creation des fichiers de base si necessaire
+for i in dossiers_base:
+
+    if i not in dossiers:
+
+        os.makedirs('{}\{}'.format(source, i))
 
 for racine, directories, fichiers in root:
 
@@ -197,17 +208,14 @@ for dossier in os.listdir(source):
         print('Supression du dossier ' + (os.path.join(source, dossier)))
 
         if simulation == False:
-            os.removedirs(os.path.join(source, dossier))
+            #os.removedirs(os.path.join(source, dossier))
+            shutil.rmtree(os.path.join(source, dossier))
+
 
 
 quit()
 
-#Creation des fichiers de base si necessaire
-for i in dossiers_base:
 
-    if i not in dossiers:
-
-        os.makedirs('{}\{}'.format(source, i))
 
 for items in dossiers :
 
