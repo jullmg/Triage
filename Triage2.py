@@ -1,9 +1,8 @@
-'''Version : 1.1 '''
+'''Version : 1.2 '''
 
 #a faire :
-# lire plus qu'un dossier de profondeur
-# mode simulation
-# Synchronisation sur base de donnee sur le web?
+
+# Synchronisation sur base de donnee sur le web? Pour chercher posters et sous-titres
 
 
 import os
