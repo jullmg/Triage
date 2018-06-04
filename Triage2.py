@@ -148,7 +148,8 @@ class Item_to_process:
 
 
             if simulation == False:
-                os.rename(self._path_complet, self._purgatoire)
+
+                rename(self._path_complet, path.join(dossier_purgatoire, self._nom_fichier))
 
     def purge(self):
 
@@ -183,18 +184,16 @@ dossier_purgatoire  = path.join(source, 'Purgatoire')
 
 dossiers_base = ['Purgatoire','Films','Series']
 
-
-
-dossiers = os.listdir(source)
-
 root = os.walk(source)
 
-#Creation des fichiers de base si necessaire
-for i in dossiers_base:
+#Creation du dossier purgatoire s'il est manquant
+if not os.path.isdir(dossier_purgatoire):
 
-    if i not in dossiers:
+    print('Creation du dossier {}'.format(dossier_purgatoire))
 
-        os.makedirs('{}\{}'.format(source, i))
+    if simulation == False:
+
+        os.makedirs(dossier_purgatoire)
 
 for racine, directories, fichiers in root:
 
@@ -205,8 +204,7 @@ for racine, directories, fichiers in root:
                 and racine !=  dossier_purgatoire:
 
             individu = Item_to_process(fichier, racine)
-            print('racine ' + racine)
-            print('dossier_series : ' + dossier_series)
+
             individu.purge()
 
             individu.classify()
@@ -214,7 +212,7 @@ for racine, directories, fichiers in root:
 #On fait le menage des dossiers vides
 for dossier in os.listdir(source):
 
-    if dossier not in dossiers_base and dossier != os.path.basename(__file__) :
+    if dossier not in dossiers_base and dossier != os.path.basename(__file__) and os.path.isdir(dossier) :
 
         print('Supression du dossier ' + (os.path.join(source, dossier)))
 
