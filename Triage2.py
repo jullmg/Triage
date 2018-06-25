@@ -12,6 +12,13 @@ from os import rename, path
 
 from string import capwords
 
+simulation = True
+
+if simulation == True:
+    print('***Mode Simulation Actif***')
+
+else:
+    print('***Mode Simulation Non-Actif***')
 
 
 class Item_to_process:
@@ -28,7 +35,7 @@ class Item_to_process:
 
         self._purgatoire = '{}\purgatoire\{}'.format(source, self._nom_fichier)
 
-        self.indesirables = ['.txt', '.nfo', '.jpg', '.sfv', '.ini']
+        self.indesirables = ['.txt', '.nfo', '.jpg', '.sfv', '.ini', '.png']
 
 
     def classify(self):
@@ -41,94 +48,83 @@ class Item_to_process:
 
         if self._extension not in self.indesirables:
 
-            for i, n in enumerate(self._nom_fichier):
+                for i, n in enumerate(self._nom_fichier):
 
-                # On detecte si c'est une serie televisee en detectant le pattern S0102
-                try:
+                    # On detecte si c'est une serie televisee en detectant le pattern S0102
+                    try:
 
-                    if (self._nom_fichier[i] in ['s', 'S', 'E', 'e']) and (self._nom_fichier[(i + 1)] in range_1_a_10) and (self._nom_fichier[(i - 1)] in ['.', ' ']):
+                        if (self._nom_fichier[i] in ['s', 'S', 'E', 'e']) and (self._nom_fichier[(i + 1)] in range_1_a_10) and (self._nom_fichier[(i - 1)] in ['.', ' ']):
 
-                        type_detecte = 'Serie'
+                            type_detecte = 'Serie'
 
-                        if self._nom_fichier[i] in ['E', 'e']:
+                            if self._nom_fichier[i] in ['E', 'e']:
 
-                            series_episode = ('S01' + self._nom_fichier[i:(i + 3)])
-
-                        else:
-
-                            series_episode = ''.join(self._nom_fichier[i:(i + 6)])
-
-                        series_episode = series_episode.upper()
-
-                        series_title = ''.join(self._nom_fichier[0:(i-1)])
-
-                        series_title_clean = ''
-
-                        # On determine la nomenclature pour le dossier qui contiendra cette serie
-                        for n in series_title:
-
-                            if n != '.':
-
-                                series_title_clean = series_title_clean + n
+                                series_episode = ('S01' + self._nom_fichier[i:(i + 3)])
 
                             else:
 
-                                series_title_clean = series_title_clean + ' '
+                                series_episode = ''.join(self._nom_fichier[i:(i + 6)])
 
-                        series_title_clean = capwords(series_title_clean)
+                            series_episode = series_episode.upper()
 
+                            series_title = ''.join(self._nom_fichier[0:(i-1)])
 
+                            series_title_clean = ''
 
-                        seasons_folder = 'Season {}'.format(series_episode[1:3])
+                            # On determine la nomenclature pour le dossier qui contiendra cette serie
+                            for n in series_title:
 
-                        #On determine le path de destination pour l'item
-                        series_pathto = ('{}\{}\{}\{} {}{}'.format(dossier_series,series_title_clean, seasons_folder, series_title_clean, series_episode, self._extension))
+                                if n != '.':
 
-                        # Si le dossier qui contient la saison n'existe pas, on le cree et finalement on deplace vers celui-ci
-                        if os.path.isdir('{}\{}\{}'.format(dossier_series, series_title_clean, seasons_folder)):
+                                    series_title_clean = series_title_clean + n
 
-                            print(self._path_complet + '-->' + series_pathto)
-                            if simulation == False:
-                                rename(self._path_complet, series_pathto)
+                                else:
 
-                        else:
+                                    series_title_clean = series_title_clean + ' '
 
-                            os.makedirs('{}\{}\{}'.format(dossier_series, series_title_clean, seasons_folder))
-
-                            print(self._path_complet + ' --> ' + series_pathto)
-                            if simulation == False:
-                                rename(self._path_complet, series_pathto)
+                            series_title_clean = capwords(series_title_clean)
 
 
 
-                except IndexError:
-                    pass
+                            seasons_folder = 'Season {}'.format(series_episode[1:3])
+
+                            #On determine le path de destination pour l'item
+                            series_pathto = ('{}\{}\{}\{} {}{}'.format(dossier_series,series_title_clean, seasons_folder, series_title_clean, series_episode, self._extension))
+
+                            # Si le dossier qui contient la saison n'existe pas, on le cree et finalement on deplace vers celui-ci
+                            if os.path.isdir('{}\{}\{}'.format(dossier_series, series_title_clean, seasons_folder)):
+
+                                print(self._path_complet + '-->' + series_pathto)
+                                if simulation == False:
+                                    rename(self._path_complet, series_pathto)
+
+                            else:
+
+                                os.makedirs('{}\{}\{}'.format(dossier_series, series_title_clean, seasons_folder))
+
+                                print(self._path_complet + ' --> ' + series_pathto)
+                                if simulation == False:
+                                    rename(self._path_complet, series_pathto)
+
+
+
+                    except IndexError:
+                        pass
 
             # On detecte un film en trouvant une annee
 
                 try:
 
-                    if self._nom_fichier[i] in ['1', '2'] and self._nom_fichier[i + 1] in range_1_a_10 \
-                            and self._nom_fichier[i + 2] in range_1_a_10 and self._nom_fichier[i + 3] in range_1_a_10 \
-                            and (self._nom_fichier[i - 1]) in ['.', '(', '[', '-', ' ']:
+                    resultat_film = re.findall(r'[\W\s][12][09]\d{2}', self._nom_fichier)
+
+
+                    if len(resultat_film) > 0:
 
                         type_detecte = "Film"
 
-                        movie_title = ''
+                        resultat_film = resultat_film[0]
 
-                        #On change les points par des espaces
-                        for lettre in self._nom_fichier[0:i - 1]:
-
-                            if lettre == '.':
-
-                                movie_title = movie_title + ' '
-
-                            else:
-
-                                movie_title = movie_title + lettre
-
-
-                        movie_year = ''.join(self._nom_fichier[i:i + 4])
+                        movie_year = resultat_film[1:]
 
                         # dossier destination pourn les films
                         movies_pathto = ('{}\{} ({}){}'.format(dossier_films, movie_title, movie_year, self._extension))
@@ -170,11 +166,10 @@ class Item_to_process:
                 if simulation == False:
                     os.rename(self._path_complet, self._purgatoire)
 
-simulation = False
 
-#source = 'd:\\downloads\\triage'
+source = 'd:\\downloads\\triage'
 
-source = os.getcwd()
+#source = os.getcwd()
 
 dossier_films = path.join(source, 'Films')
 
@@ -190,18 +185,20 @@ root = os.walk(source)
 if not os.path.isdir(dossier_purgatoire):
 
     print('Creation du dossier {}'.format(dossier_purgatoire))
-
     if simulation == False:
 
         os.makedirs(dossier_purgatoire)
 
+#iteration recursive dans l'arborescence source
 for racine, directories, fichiers in root:
 
     for fichier in fichiers:
 
+        #On determine si le dossier racine contient du materiel deja classe dans les dossiers de base
+        parse_dossier_racine = re.search(r"\\(Series|Films|Purgatoire)", racine)
 
-        if racine != dossier_series and racine != dossier_films \
-                and racine !=  dossier_purgatoire:
+        #Si le parse ne retourne rien on process l'item
+        if  parse_dossier_racine == None:
 
             individu = Item_to_process(fichier, racine)
 
