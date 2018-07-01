@@ -2,26 +2,18 @@
 
 #a faire :
 
-#utiliser les expressions regulières
-# Synchronisation sur base de donnee sur le web? Pour chercher posters et sous-titres et nom episodes
+    #utiliser les expressions regulières
+    # Synchronisation sur base de donnee sur le web? Pour chercher posters et sous-titres et nom episodes
+    # Faire un GUI?
+
+#Troubles :
+
+    #Parfois un espace a la find e la variable movie_title
 
 
 import os, re, shutil, string
 
 from os import rename, path
-
-
-
-
-# Mode simulation = Aucunes manipulations sur les fichiers
-simulation = True
-
-if simulation == True:
-    print('***Mode Simulation Actif***')
-
-else:
-    print('***Mode Simulation Non-Actif, des actions seront posées!!***')
-
 
 class Item_to_process:
 
@@ -37,7 +29,7 @@ class Item_to_process:
 
         self._purgatoire = '{}\purgatoire\{}'.format(source, self._nom_fichier)
 
-        self.indesirables = ['.txt', '.nfo', '.jpg', '.sfv', '.ini', '.png']
+        self.indesirables = ['.txt', '.nfo', '.jpg', '.sfv', '.ini', '.png', '.ts']
 
 
     def classify(self):
@@ -117,7 +109,8 @@ class Item_to_process:
 
                 try:
 
-                    resultat_film = re.search(r'[\W\s][12][09]\d{2}', self._nom_fichier)
+                    resultat_film = re.search(r"\W(19[2-9][0-9]|20[0-2][0-9])", self._nom_fichier)
+                    #resultat_film = re.search(r'[\W\s][12][09]\d{2}', self._nom_fichier)
 
                     #Si le re.search retourne un resultat on extrapole l'annee et le titre du film
                     if resultat_film:
@@ -138,12 +131,16 @@ class Item_to_process:
 
                         # Deplacement du film vers le dossier film
                         print(self._path_complet + ' --> ' + movies_pathto)
+
                         if simulation == False:
+
                             rename(self._path_complet, movies_pathto)
 
                 except:
 
+                    (print('Erreur dans le deplacement du film') + movie_title)
                     pass
+
 
         if type_detecte == None and self._nom_fichier != os.path.basename(__file__) and self._extension not in self.indesirables:
 
@@ -173,7 +170,6 @@ class Item_to_process:
                 if simulation == False:
                     os.rename(self._path_complet, self._purgatoire)
 
-
 source = 'd:\\downloads\\triage'
 
 #source = os.getcwd()
@@ -187,6 +183,15 @@ dossier_purgatoire  = path.join(source, 'Purgatoire')
 dossiers_base = ['Purgatoire','Films','Series']
 
 root = os.walk(source)
+
+# Mode simulation = Aucunes manipulations sur les fichiers
+simulation = True
+
+if simulation == True:
+    print('***Mode Simulation Actif***')
+
+else:
+    print('***Mode Simulation Non-Actif, des actions seront posées!!***')
 
 #Creation du dossier purgatoire s'il est manquant
 if not os.path.isdir(dossier_purgatoire):
@@ -216,7 +221,9 @@ for racine, directories, fichiers in root:
 #On fait le menage des dossiers vides
 for dossier in os.listdir(source):
 
-    if dossier not in dossiers_base and dossier != os.path.basename(__file__) and os.path.isdir(dossier) :
+    path_dossier = path.join(source, dossier)
+
+    if dossier not in dossiers_base and os.path.isdir(path_dossier):
 
         print('Supression du dossier ' + (os.path.join(source, dossier)))
 
