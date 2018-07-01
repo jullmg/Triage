@@ -6,19 +6,21 @@
 # Synchronisation sur base de donnee sur le web? Pour chercher posters et sous-titres et nom episodes
 
 
-import os, re, shutil, stat
+import os, re, shutil, string
 
 from os import rename, path
 
-from string import capwords
 
+
+
+# Mode simulation = Aucunes manipulations sur les fichiers
 simulation = True
 
 if simulation == True:
     print('***Mode Simulation Actif***')
 
 else:
-    print('***Mode Simulation Non-Actif***')
+    print('***Mode Simulation Non-Actif, des actions seront posées!!***')
 
 
 class Item_to_process:
@@ -82,7 +84,7 @@ class Item_to_process:
 
                                     series_title_clean = series_title_clean + ' '
 
-                            series_title_clean = capwords(series_title_clean)
+                            series_title_clean = string.capwords(series_title_clean)
 
 
 
@@ -115,18 +117,23 @@ class Item_to_process:
 
                 try:
 
-                    resultat_film = re.findall(r'[\W\s][12][09]\d{2}', self._nom_fichier)
+                    resultat_film = re.search(r'[\W\s][12][09]\d{2}', self._nom_fichier)
 
-
-                    if len(resultat_film) > 0:
+                    #Si le re.search retourne un resultat on extrapole l'annee et le titre du film
+                    if resultat_film:
 
                         type_detecte = "Film"
 
-                        resultat_film = resultat_film[0]
+                        index_debut, index_fin = resultat_film.span()
 
-                        movie_year = resultat_film[1:]
+                        movie_year = self._nom_fichier[(index_debut+1):index_fin]
 
-                        # dossier destination pourn les films
+                        movie_title = str(self._nom_fichier[:index_debut])
+
+                        #On remplace les points par des espaces
+                        movie_title = movie_title.replace('.', ' ')
+
+                        # dossier destination pour les films
                         movies_pathto = ('{}\{} ({}){}'.format(dossier_films, movie_title, movie_year, self._extension))
 
                         # Deplacement du film vers le dossier film
