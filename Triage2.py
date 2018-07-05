@@ -2,13 +2,14 @@
 
 #a faire :
 
+    #os.path.join pour remplacer les string formatting
     #utiliser les expressions regulières
     # Synchronisation sur base de donnee sur le web? Pour chercher posters et sous-titres et nom episodes
     # Faire un GUI?
 
 #Troubles :
 
-    #Parfois un espace a la find e la variable movie_title
+    #Parfois un espace Ka la find e la variable movie_title
 
 
 import os, re, shutil, string
@@ -34,122 +35,97 @@ class Item_to_process:
 
     def classify(self):
 
-        #item_name, item_extention
-
-        range_1_a_10 = str(list(range(0, 10)))
-
         type_detecte = None
 
-        if self._extension not in self.indesirables:
+        try:
 
-                for i, n in enumerate(self._nom_fichier):
+            # On detecte si c'est une serie televisee en detectant le pattern S01E02
+            resultat_serie = re.search(r"\W[Ss]\d\d[Ee]\d\d", self._nom_fichier)
 
-                    # On detecte si c'est une serie televisee en detectant le pattern S0102
-                    try:
+            # Si le re.search retourne un resultat on extrapole le titre
+            if resultat_serie:
 
-                        if (self._nom_fichier[i] in ['s', 'S', 'E', 'e']) and (self._nom_fichier[(i + 1)] in range_1_a_10) and (self._nom_fichier[(i - 1)] in ['.', ' ']):
+                type_detecte = 'Serie'
 
-                            type_detecte = 'Serie'
+                #On determine l'index du resultat
+                index_debut, index_fin = resultat_serie.span()
 
-                            if self._nom_fichier[i] in ['E', 'e']:
+                series_episode = self._nom_fichier[(index_debut + 1):index_fin]
 
-                                series_episode = ('S01' + self._nom_fichier[i:(i + 3)])
+                series_episode = series_episode.upper()
 
-                            else:
+                series_title = str(self._nom_fichier[:index_debut])
 
-                                series_episode = ''.join(self._nom_fichier[i:(i + 6)])
+                # On remplace les points par des espaces
+                series_title = series_title.replace('.', ' ')
 
-                            series_episode = series_episode.upper()
+                # Lettre majuscule au debut de chaque mot
+                series_title = string.capwords(series_title)
 
-                            series_title = ''.join(self._nom_fichier[0:(i-1)])
+                series_complete_title = '{} {}{}'.format(series_title, series_episode, self._extension)
 
-                            series_title_clean = ''
+                seasons_folder = 'Season {}'.format(series_episode[1:3])
 
-                            # On determine la nomenclature pour le dossier qui contiendra cette serie
-                            for n in series_title:
+                #On determine le path de destination pour l'item
+                series_pathto = os.path.join(dossier_series, series_title, seasons_folder, series_complete_title)
 
-                                if n != '.':
+                # Si le dossier qui contient la saison n'existe pas, on le cree et finalement on deplace vers celui-ci
+                path_dossier_season = os.path.join(dossier_series, series_title, seasons_folder)
 
-                                    series_title_clean = series_title_clean + n
+                if os.path.isdir(path_dossier_season):
 
-                                else:
+                    print(self._path_complet + '-->' + series_pathto)
+                    if simulation == False:
+                        rename(self._path_complet, series_pathto)
 
-                                    series_title_clean = series_title_clean + ' '
+                else:
 
-                            series_title_clean = string.capwords(series_title_clean)
+                    print('Creation du dossier ' + path_dossier_season)
+                    print(self._path_complet + ' --> ' + series_pathto)
+                    if simulation == False:
+                        os.makedirs(path_dossier_season)
+                        rename(self._path_complet, series_pathto)
 
+            # On detecte un film en trouvant une annee entre 1920 et 2029
+            resultat_film = re.search(r"\W(19[2-9][0-9]|20[0-2][0-9])", self._nom_fichier)
 
+            #Si le re.search retourne un resultat on extrapole l'annee et le titre du film
+            if resultat_film:
 
-                            seasons_folder = 'Season {}'.format(series_episode[1:3])
+                type_detecte = "Film"
 
-                            #On determine le path de destination pour l'item
-                            series_pathto = ('{}\{}\{}\{} {}{}'.format(dossier_series,series_title_clean, seasons_folder, series_title_clean, series_episode, self._extension))
+                index_debut, index_fin = resultat_film.span()
 
-                            # Si le dossier qui contient la saison n'existe pas, on le cree et finalement on deplace vers celui-ci
-                            if os.path.isdir('{}\{}\{}'.format(dossier_series, series_title_clean, seasons_folder)):
+                movie_year = self._nom_fichier[(index_debut+1):index_fin]
 
-                                print(self._path_complet + '-->' + series_pathto)
-                                if simulation == False:
-                                    rename(self._path_complet, series_pathto)
+                movie_title = str(self._nom_fichier[:index_debut])
 
-                            else:
+                #On remplace les points par des espaces
+                movie_title = movie_title.replace('.', ' ')
 
-                                os.makedirs('{}\{}\{}'.format(dossier_series, series_title_clean, seasons_folder))
+                # dossier destination pour les films
+                movies_pathto = ('{}\{} ({}){}'.format(dossier_films, movie_title, movie_year, self._extension))
 
-                                print(self._path_complet + ' --> ' + series_pathto)
-                                if simulation == False:
-                                    rename(self._path_complet, series_pathto)
+                # Deplacement du film vers le dossier film
+                print(self._path_complet + ' --> ' + movies_pathto)
 
+                if simulation == False:
 
+                    rename(self._path_complet, movies_pathto)
 
-                    except IndexError:
-                        pass
+            if type_detecte == None and self._nom_fichier != os.path.basename(__file__) and self._extension not in self.indesirables:
 
-            # On detecte un film en trouvant une annee
-
-                try:
-
-                    resultat_film = re.search(r"\W(19[2-9][0-9]|20[0-2][0-9])", self._nom_fichier)
-                    #resultat_film = re.search(r'[\W\s][12][09]\d{2}', self._nom_fichier)
-
-                    #Si le re.search retourne un resultat on extrapole l'annee et le titre du film
-                    if resultat_film:
-
-                        type_detecte = "Film"
-
-                        index_debut, index_fin = resultat_film.span()
-
-                        movie_year = self._nom_fichier[(index_debut+1):index_fin]
-
-                        movie_title = str(self._nom_fichier[:index_debut])
-
-                        #On remplace les points par des espaces
-                        movie_title = movie_title.replace('.', ' ')
-
-                        # dossier destination pour les films
-                        movies_pathto = ('{}\{} ({}){}'.format(dossier_films, movie_title, movie_year, self._extension))
-
-                        # Deplacement du film vers le dossier film
-                        print(self._path_complet + ' --> ' + movies_pathto)
-
-                        if simulation == False:
-
-                            rename(self._path_complet, movies_pathto)
-
-                except:
-
-                    (print('Erreur dans le deplacement du film') + movie_title)
-                    pass
+                print('Type non-detecte, au purgatoire: ' + self._nom_fichier)
 
 
-        if type_detecte == None and self._nom_fichier != os.path.basename(__file__) and self._extension not in self.indesirables:
+                if simulation == False:
 
-            print('Type non-detecte, au purgatoire: ' + self._nom_fichier)
+                    rename(self._path_complet, path.join(dossier_purgatoire, self._nom_fichier))
 
+        except:
 
-            if simulation == False:
-
-                rename(self._path_complet, path.join(dossier_purgatoire, self._nom_fichier))
+            print('Erreur lors de l\'analyse de ' + self._nom_fichier)
+            pass
 
     def purge(self):
 
