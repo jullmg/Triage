@@ -161,7 +161,7 @@ dossiers_base = ['Purgatoire','Films','Series']
 root = os.walk(source)
 
 # Mode simulation = Aucunes manipulations sur les fichiers
-simulation = True
+simulation = TrueK
 
 if simulation == True:
     print('***Mode Simulation Actif***')
