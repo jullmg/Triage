@@ -4,7 +4,7 @@
 
     #os.path.join pour remplacer les string formatting
     #utiliser les expressions regulières
-    # Synchronisation sur base de donnee sur le web? Pour chercher posters et sous-titres et nom episodes
+    # Synchronisation sur base de donnee sur le web? Pour confirmer le type de media (serie ou film) et downloader les sous-titres
     # Faire un GUI?
 
 #Troubles :
@@ -161,7 +161,7 @@ dossiers_base = ['Purgatoire','Films','Series']
 root = os.walk(source)
 
 # Mode simulation = Aucunes manipulations sur les fichiers
-simulation = TrueK
+simulation = False
 
 if simulation == True:
     print('***Mode Simulation Actif***')
