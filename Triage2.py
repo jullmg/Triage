@@ -1,4 +1,9 @@
-'''Version : 1.2 '''
+'''Version : 2.0 '''
+
+#Changelog
+
+# 1.8 : Integre les expressions regulieres
+# 2.0 : Integre les requetes API sur themoviedb.org pour valider les informations de l'item.
 
 #a faire :
 
@@ -9,10 +14,10 @@
 
 #Troubles :
 
-    #Parfois un espace Ka la find e la variable movie_title
+    #Parfois un espace a la find de la variable movie_title
 
 
-import os, re, shutil, string
+import os, re, shutil, string, urllib.request, urllib.parse, json
 
 from os import rename, path
 
@@ -161,7 +166,7 @@ dossiers_base = ['Purgatoire','Films','Series']
 root = os.walk(source)
 
 # Mode simulation = Aucunes manipulations sur les fichiers
-simulation = False
+simulation = True
 
 if simulation == True:
     print('***Mode Simulation Actif***')
@@ -206,3 +211,55 @@ for dossier in os.listdir(source):
         if simulation == False:
 
             shutil.rmtree(os.path.join(source, dossier))
+
+
+
+#URL de base pour recherche multiple incluant films et series
+url = 'https://api.themoviedb.org/3/search/multi?'
+
+search_values = {'api_key' : '3282e21d33f2ff968619ab7ded55950d', 'query' : 'Toy Story' }
+
+#Encode le dictionnaire (percent-encoded ASCII text string)
+search_data = urllib.parse.urlencode(search_values)
+
+#Encode ce string en UTF-8 (binaire)
+search_data = search_data.encode('utf-8')
+
+#On fait la requete URL incluant les search_values a l'API de themoviedb.org
+data_binaire = urllib.request.urlopen(url,search_data)
+data_binaire = data_binaire.read()
+
+#On decode l'information encodee UTF-8
+data_string = data_binaire.decode(encoding='UTF-8',errors='strict')
+
+#On transforme la string JSON en dictionnaire Python
+json_data = json.loads(data_string)
+
+#On va chercher l'information si il ya des resultats
+if json_data['total_results'] > 0:
+
+    #Cette clee du dictionnaire contient tous les resultats dans une liste
+    resultats = json_data['results']
+
+    #Le premier item de la liste est le resultat le plus 'revelant'
+    resultat_0 = resultats[0]
+
+    if resultat_0['media_type'] == 'tv':
+
+        type_detecte = 'Serie'
+
+        print('titre: ' + resultat_0['original_name'])
+        print('type: ' + type_detecte)
+
+    elif resultat_0['media_type'] == 'movie':
+
+        type_detecte = 'Film'
+
+        release_date = resultat_0['release_date']
+        release_year = release_date[:4]
+
+        print('titre: ' + resultat_0['title'])
+        print('type: ' + type_detecte)
+        print('Annee: ' + release_year)
+else:
+    print('Aucun resultat trouve sur themoviedb.org')
