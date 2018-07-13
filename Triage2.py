@@ -7,14 +7,14 @@
 
 #a faire :
 
-    #os.path.join pour remplacer les string formatting
-    #utiliser les expressions regulières
+    # Faire un log decent
+    # Download subtitles
     # Synchronisation sur base de donnee sur le web? Pour confirmer le type de media (serie ou film) et downloader les sous-titres
     # Faire un GUI?
 
 #Troubles :
 
-    #Parfois un espace a la find de la variable movie_title
+    #Parfois un espace a la fin de la variable movie_title
 
 
 import os, re, shutil, string, urllib.request, urllib.parse, json
@@ -36,6 +36,7 @@ class Item_to_process:
         self._purgatoire = '{}\purgatoire\{}'.format(source, self._nom_fichier)
 
         self.indesirables = ['.txt', '.nfo', '.jpg', '.sfv', '.ini', '.png', '.ts']
+
 
 
     def classify(self):
@@ -67,6 +68,11 @@ class Item_to_process:
                 # Lettre majuscule au debut de chaque mot
                 series_title = string.capwords(series_title)
 
+                print('Les Regex retournent le type Serie et le titre ' + series_title)
+
+                # On contre-verifie le resultat par l'API de themoviedb.org
+                series_title = self.verify(series_title)
+
                 series_complete_title = '{} {}{}'.format(series_title, series_episode, self._extension)
 
                 seasons_folder = 'Season {}'.format(series_episode[1:3])
@@ -91,46 +97,115 @@ class Item_to_process:
                         os.makedirs(path_dossier_season)
                         rename(self._path_complet, series_pathto)
 
-            # On detecte un film en trouvant une annee entre 1920 et 2029
-            resultat_film = re.search(r"\W(19[2-9][0-9]|20[0-2][0-9])", self._nom_fichier)
+            # Si aucunes series detectees, on detecte un film en trouvant une annee entre 1920 et 2029
+            if type_detecte == None:
 
-            #Si le re.search retourne un resultat on extrapole l'annee et le titre du film
-            if resultat_film:
+                resultat_film = re.search(r"\W(19[2-9][0-9]|20[0-2][0-9])", self._nom_fichier)
 
-                type_detecte = "Film"
+                #Si le re.search retourne un resultat on extrapole l'annee et le titre du film
+                if resultat_film:
 
-                index_debut, index_fin = resultat_film.span()
+                    type_detecte = "Film"
 
-                movie_year = self._nom_fichier[(index_debut+1):index_fin]
+                    index_debut, index_fin = resultat_film.span()
 
-                movie_title = str(self._nom_fichier[:index_debut])
+                    movie_year = self._nom_fichier[(index_debut+1):index_fin]
 
-                #On remplace les points par des espaces
-                movie_title = movie_title.replace('.', ' ')
+                    movie_title = str(self._nom_fichier[:index_debut])
 
-                # dossier destination pour les films
-                movies_pathto = ('{}\{} ({}){}'.format(dossier_films, movie_title, movie_year, self._extension))
+                    #On remplace les points par des espaces
+                    movie_title = movie_title.replace('.', ' ')
 
-                # Deplacement du film vers le dossier film
-                print(self._path_complet + ' --> ' + movies_pathto)
+                    print('Les Regex retournent le type Film et le titre ' + movie_title)
 
-                if simulation == False:
+                    # On contre-verifie le resultat par l'API de themoviedb.org
+                    movie_title = self.verify(movie_title)
 
-                    rename(self._path_complet, movies_pathto)
+                    # dossier destination pour les films
+                    movies_pathto = ('{}\{} ({}){}'.format(dossier_films, movie_title, movie_year, self._extension))
+
+                    # Deplacement du film vers le dossier film
+                    print(self._path_complet + ' --> ' + movies_pathto)
+
+                    if simulation == False:
+
+                        rename(self._path_complet, movies_pathto)
 
             if type_detecte == None and self._nom_fichier != os.path.basename(__file__) and self._extension not in self.indesirables:
 
                 print('Type non-detecte, au purgatoire: ' + self._nom_fichier)
 
-
                 if simulation == False:
 
                     rename(self._path_complet, path.join(dossier_purgatoire, self._nom_fichier))
 
-        except:
+        except Exception as erreur:
 
             print('Erreur lors de l\'analyse de ' + self._nom_fichier)
+            print(erreur)
             pass
+
+    def verify(self, valeur_recherche):
+
+        # URL de base pour recherche multiple incluant films et series
+        url_multi_search = 'https://api.themoviedb.org/3/search/multi?'
+
+        search_values = {'api_key': '3282e21d33f2ff968619ab7ded55950d'}
+
+        # On determine la recherche qui sera faite sur themoviedb.org
+        search_values['query'] = valeur_recherche
+        
+        # Encode le dictionnaire en str (percent-encoded ASCII text string)
+        search_data = urllib.parse.urlencode(search_values)
+
+        # Encode ce string en UTF-8 (binaire)
+        search_data = search_data.encode('utf-8')
+
+        # On fait la requete URL incluant les search_values a l'API de themoviedb.org
+        data_binaire = urllib.request.urlopen(url_multi_search, search_data)
+        data_binaire = data_binaire.read()
+
+        # On decode l'information encodee UTF-8
+        data_string = data_binaire.decode(encoding='UTF-8', errors='strict')
+
+        # On transforme la string JSON en dictionnaire Python
+        json_data = json.loads(data_string)
+        
+        #On va chercher l'information si il ya des resultats
+        if json_data['total_results'] > 0:
+
+            #Cette clee du dictionnaire contient tous les resultats dans une liste
+            resultats = json_data['results']
+
+            #Le premier item de la liste est le resultat le plus 'revelant'
+            resultat_0 = resultats[0]
+
+
+            if resultat_0['media_type'] == 'tv':
+
+                type_detecte = 'Serie'
+
+                serie_title = resultat_0['original_name']
+
+                print('themoviedb.org retourne le type {} et le titre {} '.format(type_detecte, serie_title))
+                return serie_title
+
+            elif resultat_0['media_type'] == 'movie':
+
+                type_detecte = 'Film'
+
+                release_date = resultat_0['release_date']
+                release_year = release_date[:4]
+                movie_title = resultat_0['title']
+
+                print('themoviedb.org retourne le type {} et le titre {} '.format(type_detecte, movie_title))
+                return movie_title
+        else:
+
+            return valeur_recherche
+            print('Aucun resultat trouve sur themoviedb.org')
+        
+
 
     def purge(self):
 
@@ -151,6 +226,15 @@ class Item_to_process:
                 if simulation == False:
                     os.rename(self._path_complet, self._purgatoire)
 
+# Mode simulation = Aucunes manipulations sur les fichiers
+simulation = True
+
+if simulation == True:
+    print('***Mode Simulation Actif***')
+
+else:
+    print('***Mode Simulation Non-Actif, des actions seront posées!!***')
+
 source = 'd:\\downloads\\triage'
 
 #source = os.getcwd()
@@ -164,15 +248,6 @@ dossier_purgatoire  = path.join(source, 'Purgatoire')
 dossiers_base = ['Purgatoire','Films','Series']
 
 root = os.walk(source)
-
-# Mode simulation = Aucunes manipulations sur les fichiers
-simulation = True
-
-if simulation == True:
-    print('***Mode Simulation Actif***')
-
-else:
-    print('***Mode Simulation Non-Actif, des actions seront posées!!***')
 
 #Creation du dossier purgatoire s'il est manquant
 if not os.path.isdir(dossier_purgatoire):
@@ -214,52 +289,9 @@ for dossier in os.listdir(source):
 
 
 
-#URL de base pour recherche multiple incluant films et series
-url = 'https://api.themoviedb.org/3/search/multi?'
 
-search_values = {'api_key' : '3282e21d33f2ff968619ab7ded55950d', 'query' : 'Toy Story' }
 
-#Encode le dictionnaire (percent-encoded ASCII text string)
-search_data = urllib.parse.urlencode(search_values)
 
-#Encode ce string en UTF-8 (binaire)
-search_data = search_data.encode('utf-8')
 
-#On fait la requete URL incluant les search_values a l'API de themoviedb.org
-data_binaire = urllib.request.urlopen(url,search_data)
-data_binaire = data_binaire.read()
 
-#On decode l'information encodee UTF-8
-data_string = data_binaire.decode(encoding='UTF-8',errors='strict')
 
-#On transforme la string JSON en dictionnaire Python
-json_data = json.loads(data_string)
-
-#On va chercher l'information si il ya des resultats
-if json_data['total_results'] > 0:
-
-    #Cette clee du dictionnaire contient tous les resultats dans une liste
-    resultats = json_data['results']
-
-    #Le premier item de la liste est le resultat le plus 'revelant'
-    resultat_0 = resultats[0]
-
-    if resultat_0['media_type'] == 'tv':
-
-        type_detecte = 'Serie'
-
-        print('titre: ' + resultat_0['original_name'])
-        print('type: ' + type_detecte)
-
-    elif resultat_0['media_type'] == 'movie':
-
-        type_detecte = 'Film'
-
-        release_date = resultat_0['release_date']
-        release_year = release_date[:4]
-
-        print('titre: ' + resultat_0['title'])
-        print('type: ' + type_detecte)
-        print('Annee: ' + release_year)
-else:
-    print('Aucun resultat trouve sur themoviedb.org')
