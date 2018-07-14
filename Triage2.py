@@ -46,7 +46,7 @@ class Item_to_process:
         try:
 
             # On detecte si c'est une serie televisee en detectant le pattern S01E02
-            resultat_serie = re.search(r"\W[Ss]\d\d[Ee]\d\d", self._nom_fichier)
+            resultat_serie = re.search(r"[Ss]\d\d[Ee]\d\d", self._nom_fichier)
 
             # Si le re.search retourne un resultat on extrapole le titre
             if resultat_serie:
@@ -56,14 +56,15 @@ class Item_to_process:
                 #On determine l'index du resultat
                 index_debut, index_fin = resultat_serie.span()
 
-                series_episode = self._nom_fichier[(index_debut + 1):index_fin]
+                series_episode = self._nom_fichier[(index_debut):index_fin]
 
                 series_episode = series_episode.upper()
 
                 series_title = str(self._nom_fichier[:index_debut])
 
-                # On remplace les points par des espaces
+                # On remplace les points et les underscores par des espaces
                 series_title = series_title.replace('.', ' ')
+                series_title = series_title.replace('_', ' ')
 
                 # Lettre majuscule au debut de chaque mot
                 series_title = string.capwords(series_title)
@@ -201,9 +202,9 @@ class Item_to_process:
                 print('themoviedb.org retourne le type {} et le titre {} '.format(type_detecte, movie_title))
                 return movie_title
         else:
-
-            return valeur_recherche
             print('Aucun resultat trouve sur themoviedb.org')
+            return valeur_recherche
+
         
 
 
