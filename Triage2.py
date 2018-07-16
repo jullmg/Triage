@@ -36,70 +36,131 @@ class Item_to_process:
         self._purgatoire = '{}\purgatoire\{}'.format(source, self._nom_fichier)
 
         self.indesirables = ['.txt', '.nfo', '.jpg', '.sfv', '.ini', '.png', '.ts']
+        # On remplace les points, tirets et les underscores par des espaces
 
+    def purify(self, titre):
 
+        titre = titre.replace('.', ' ')
+        titre = titre.replace('_', ' ')
+        titre = titre.replace('-', ' ')
+
+        return titre
 
     def classify(self):
 
-        type_detecte = None
+        titre = None
+        type = None
 
-        try:
+        # On detecte si c'est une serie televisee en detectant le pattern S01E02
+        season_episode = re.search(r"[Ss]\d\d[Ee]\d\d", self._nom_fichier)
 
-            # On detecte si c'est une serie televisee en detectant le pattern S01E02
-            resultat_serie = re.search(r"[Ss]\d\d[Ee]\d\d", self._nom_fichier)
+        # Si oui l'item sera DEFINITIVEMENT considere comme une serie
+        if season_episode:
 
-            # Si le re.search retourne un resultat on extrapole le titre
-            if resultat_serie:
+            type = 'Serie'
 
-                type_detecte = 'Serie'
+            index_debut, index_fin = season_episode.span()
 
-                #On determine l'index du resultat
-                index_debut, index_fin = resultat_serie.span()
+            season_episode = season_episode.group()
+            season_episode = season_episode.upper()
+            season_episode = string.capwords(season_episode)
 
-                series_episode = self._nom_fichier[(index_debut):index_fin]
+            titre = self._nom_fichier[:(index_debut-1)]
+            titre = self.purify(titre)
+            print('Regex detecte', titre, type)
+            titre_verifie = self.verify(titre)
 
-                series_episode = series_episode.upper()
+            if titre_verifie:
+                titre, type = titre_verifie
 
-                series_title = str(self._nom_fichier[:index_debut])
+                print(titre)
+                print(season_episode)
 
-                # On remplace les points et les underscores par des espaces
-                series_title = series_title.replace('.', ' ')
-                series_title = series_title.replace('_', ' ')
+        # Si aucunes series detectees, on detecte un film en trouvant une annee entre 1920 et 2029
+        if titre == None:
+            movie_year = re.search(r"(19[2-9][0-9]|20[0-2][0-9])", self._nom_fichier)
 
-                # Lettre majuscule au debut de chaque mot
-                series_title = string.capwords(series_title)
+        if movie_year:
 
-                print('Les Regex retournent le type Serie et le titre ' + series_title)
+            type = "Film"
 
-                # On contre-verifie le resultat par l'API de themoviedb.org
-                series_title = self.verify(series_title)
+            index_debut, index_fin = movie_year.span()
 
-                series_complete_title = '{} {}{}'.format(series_title, series_episode, self._extension)
+            movie_year = movie_year.group()
 
-                seasons_folder = 'Season {}'.format(series_episode[1:3])
+            titre = str(self._nom_fichier[:index_debut-1])
+            titre = self.purify(titre)
+            titre = string.capwords(titre)
 
-                #On determine le path de destination pour l'item
-                series_pathto = os.path.join(dossier_series, series_title, seasons_folder, series_complete_title)
+            print('Regex detecte', titre, type)
 
-                # Si le dossier qui contient la saison n'existe pas, on le cree et finalement on deplace vers celui-ci
-                path_dossier_season = os.path.join(dossier_series, series_title, seasons_folder)
+            titre_verifie = self.verify(titre)
 
-                if os.path.isdir(path_dossier_season):
+            if titre_verifie:
 
-                    print(self._path_complet + '-->' + series_pathto)
-                    if simulation == False:
-                        rename(self._path_complet, series_pathto)
+                titre, type = titre_verifie
 
-                else:
+        # Si les regex n'ont pas trouve de series ou film on fait une recherche recursive sur tmdb.org
+        if titre == None:
 
-                    print('Creation du dossier ' + path_dossier_season)
-                    print(self._path_complet + ' --> ' + series_pathto)
-                    if simulation == False:
-                        os.makedirs(path_dossier_season)
-                        rename(self._path_complet, series_pathto)
+            purified_name = self.purify(self._nom_fichier)
+            self.recursive_verify(purified_name)
+
+        if titre == None:
+            print('Toutes les methodes de recherches ont echouees')
+
+
+        exit()
+
+
+
+
+
+
+
+
+
+        if type == 'Serie':
+
+            #On cherche la saison et l episode ex : S01E02
+            season_episode = re.search(r"[Ss]\d\d[Ee]\d\d", self._nom_fichier)
+            season_episode = season_episode.group()
+
+            #nom final du fichier
+            series_complete_title = '{} {}{}'.format(titre, season_episode, self._extension)
+
+            #sous dossier de saison
+            seasons_folder = 'Season {}'.format(season_episode[1:3])
+
+            #path complet de destination pour l'item
+            series_pathto = os.path.join(dossier_series, titre, seasons_folder, series_complete_title)
+
+            # Si le dossier qui contient la saison n'existe pas, on le cree et finalement on deplace vers celui-ci
+            path_dossier_season = os.path.join(dossier_series, titre, seasons_folder)
+            if os.path.isdir(path_dossier_season):
+
+                print(self._path_complet + '-->' + series_pathto)
+                if simulation == False:
+                    rename(self._path_complet, series_pathto)
+
+            else:
+
+                print('Creation du dossier ' + path_dossier_season)
+                print(self._path_complet + ' --> ' + series_pathto)
+                if simulation == False:
+                    os.makedirs(path_dossier_season)
+                    rename(self._path_complet, series_pathto)
+
+        if type == 'Film':
+
+
+
+
+
+            exit()
 
             # Si aucunes series detectees, on detecte un film en trouvant une annee entre 1920 et 2029
-            if type_detecte == None:
+            if type == None:
 
                 resultat_film = re.search(r"\W(19[2-9][0-9]|20[0-2][0-9])", self._nom_fichier)
 
@@ -140,11 +201,7 @@ class Item_to_process:
 
                     rename(self._path_complet, path.join(dossier_purgatoire, self._nom_fichier))
 
-        except Exception as erreur:
 
-            print('Erreur lors de l\'analyse de ' + self._nom_fichier)
-            print(erreur)
-            pass
 
     def verify(self, valeur_recherche):
 
@@ -188,8 +245,11 @@ class Item_to_process:
 
                 serie_title = resultat_0['original_name']
 
-                print('themoviedb.org retourne le type {} et le titre {} '.format(type_detecte, serie_title))
-                return serie_title
+                print('themoviedb.org detecte {} {} '.format(serie_title, type_detecte))
+
+                resultat_recherche_api = (serie_title, type_detecte)
+
+                return resultat_recherche_api
 
             elif resultat_0['media_type'] == 'movie':
 
@@ -199,13 +259,91 @@ class Item_to_process:
                 release_year = release_date[:4]
                 movie_title = resultat_0['title']
 
-                print('themoviedb.org retourne le type {} et le titre {} '.format(type_detecte, movie_title))
+                print('themoviedb.org detecte {} {} '.format(type_detecte, movie_title))
+
                 return movie_title
+
+            elif resultat_0['media_type'] == 'person':
+                print('Aucun resultat trouve sur themoviedb.org')
+                return None
+
         else:
             print('Aucun resultat trouve sur themoviedb.org')
-            return valeur_recherche
+            return None
 
-        
+    def recursive_verify(self, valeur_recherche):
+
+        resultat_regex_01 = re.search(r'[a-zA-Z]+\s', valeur_recherche)
+        resultat_regex_02 = re.search(r'[a-zA-Z]+\s[a-zA-Z]+', valeur_recherche)
+        resultat_regex_03 = re.search(r'[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+', valeur_recherche)
+        resultat_regex_04 = re.search(r'[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+', valeur_recherche)
+        resultat_regex_05 = re.search(r'[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+', valeur_recherche)
+        resultat_regex_06 = re.search(r'[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+',
+                                      valeur_recherche)
+
+        resultat_final = None
+
+        while True:
+
+            if resultat_regex_01:
+                print(resultat_regex_01.group())
+                resultat_verify = self.verify(resultat_regex_01.group())
+
+                if resultat_verify:
+                    resultat_final = resultat_verify
+                else:
+                    break
+
+            if resultat_regex_02:
+                print(resultat_regex_02.group())
+                resultat_verify = self.verify(resultat_regex_02.group())
+
+                if resultat_verify:
+                    resultat_final = resultat_verify
+                else:
+                    break
+
+            if resultat_regex_03:
+                print(resultat_regex_03.group())
+                resultat_verify = self.verify(resultat_regex_03.group())
+
+                if resultat_verify:
+                    resultat_final = resultat_verify
+                else:
+                    break
+
+            if resultat_regex_04:
+                print(resultat_regex_04.group())
+                resultat_verify = self.verify(resultat_regex_04.group())
+
+                if resultat_verify:
+                    resultat_final = resultat_verify
+                else:
+                    break
+
+            if resultat_regex_05:
+                print(resultat_regex_05.group())
+                resultat_verify = self.verify(resultat_regex_05.group())
+                if resultat_verify:
+                    resultat_final = resultat_verify
+                else:
+                    break
+
+            if resultat_regex_06:
+                print(resultat_regex_06.group())
+                resultat_verify = self.verify(resultat_regex_06.group())
+                if resultat_verify:
+                    resultat_final = resultat_verify
+            else:
+                break
+
+        if resultat_final:
+
+            return resultat_final
+
+
+        else:
+            return None
 
 
     def purge(self):
