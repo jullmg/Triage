@@ -1,9 +1,10 @@
-'''Version : 2.0 '''
+'''Version : 2.1 '''
 
 #Changelog
 
 # 1.8 : Integre les expressions regulieres
-# 2.0 : Integre les requetes API sur themoviedb.org pour valider les informations de l'item.
+# 2.0 : Integre les requetes API sur themoviedb.org
+# 2.1 : Classe les films par genre
 
 #a faire :
 
@@ -44,6 +45,7 @@ class Item_to_process:
         type = None
         movie_year = None
         season_episode = None
+        genre = None
 
         # On detecte si c'est une serie televisee en detectant le pattern S01E02
         season_episode = re.search(r"[Ss]\d\d[Ee]\d\d", self._nom_fichier)
@@ -97,7 +99,7 @@ class Item_to_process:
 
             # S'il trouve sur TMDB on remplace
             if titre_verifie:
-                titre, type, movie_year = titre_verifie
+                titre, type, movie_year, genre = titre_verifie
 
             # Si ca ne fonctionne pas on essaie la recherche recursive
             else:
@@ -110,7 +112,7 @@ class Item_to_process:
             titre = titre.replace(':', ' ')
 
             # On deplaces avec les valeurs finales
-            self.move_file(titre, type, None, movie_year)
+            self.move_file(titre, type, None, movie_year, genre)
 
         # Si les regex n'ont pas trouve de series ou film on fait une recherche recursive sur tmdb.org
         if titre == None:
@@ -135,6 +137,11 @@ class Item_to_process:
         return titre
 
     def verify(self, valeur_recherche):
+
+        # L'index des genre_ids sur tmdb.org
+        genre_ids = {28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy', 80: 'Crime', 99: 'Documentary',
+                     18: 'Drama', 14: 'Fantasy', 27: 'Horor', 36: 'History', 878: 'Science Fiction', 10752: 'War',
+                     10749: 'Romance'}
 
         # URL de base pour recherche multiple incluant films et series
         url_multi_search = 'https://api.themoviedb.org/3/search/multi?'
@@ -192,10 +199,14 @@ class Item_to_process:
                 release_date = resultat_0['release_date']
                 release_year = release_date[:4]
                 movie_title = resultat_0['title']
+                genre_id = resultat_0['genre_ids']
+                genre_id = genre_id[0]
+                genre = genre_ids[genre_id]
+
                 if debug:
                     print('themoviedb.org detecte {} {} '.format(type_detecte, movie_title, release_year))
 
-                resultat_recherche_api = (movie_title, type_detecte, release_year)
+                resultat_recherche_api = (movie_title, type_detecte, release_year, genre)
                 return resultat_recherche_api
 
             elif resultat_0['media_type'] == 'person':
@@ -291,7 +302,7 @@ class Item_to_process:
                 print('Recherche recursive ne retourne rien')
             return None
 
-    def move_file(self, titre, type, season_episode=None, movie_year=None):
+    def move_file(self, titre, type, season_episode=None, movie_year=None, genre=None):
 
         if type == 'Serie':
 
@@ -348,8 +359,25 @@ class Item_to_process:
 
         if type == 'Film':
 
-            # dossier destination pour les films
-            movies_pathto = ('{}\{} ({}){}'.format(dossier_films, titre, movie_year, self._extension))
+            # Nom final du fichier
+            title_final = '{} {}{}'.format(titre, movie_year, self._extension)
+
+            # dossier destination pour le films, dependant du genre
+            if genre:
+                path_final = '{}\{}'.format(dossier_films,genre)
+
+            # Si aucun genre, on envoie dans Other
+            else:
+                path_final = '{}\Other'.format(dossier_films)
+
+            #Creation du dossier de genre si inexistant
+            if not os.path.isdir(path_final):
+                print('Creation du dossier', path_final)
+
+                if not simulation:
+                    os.mkdir(path_final)
+
+            movies_pathto = ('{}\{}'.format(path_final, title_final))
 
             # Deplacement du film vers le dossier film
             print(self._path_complet + ' --> ' + movies_pathto)
@@ -376,10 +404,12 @@ class Item_to_process:
                 if simulation == False:
                     os.rename(self._path_complet, self._purgatoire)
 
+##################################################################################
 debug = False
 
 # Mode simulation = Aucunes manipulations sur les fichiers
 simulation = False
+##################################################################################
 
 if simulation == True:
     print('***Mode Simulation Actif***')
