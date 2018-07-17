@@ -9,7 +9,7 @@
 
     # Faire un log decent
     # Download subtitles
-    # Synchronisation sur base de donnee sur le web? Pour confirmer le type de media (serie ou film) et downloader les sous-titres
+    # Classification par genre
     # Faire un GUI?
 
 #Troubles :
@@ -31,11 +31,11 @@ class Item_to_process:
 
         self._path_complet = os.path.join(self._location, self._nom_fichier)
 
-        self._prefixe, self._extension = os.path.splitext(self._path_complet)
+        self._prefixe, self._extension = os.path.splitext(self._nom_fichier)
 
         self._purgatoire = '{}\purgatoire\{}'.format(source, self._nom_fichier)
 
-        self.indesirables = ['.txt', '.nfo', '.jpg', '.sfv', '.ini', '.png', '.ts']
+        self.indesirables = ['.txt', '.nfo', '.jpg', '.sfv', '.ini', '.png', '.ts', 'sample', 'Sample']
         # On remplace les points, tirets et les underscores par des espaces
 
     def classify(self):
@@ -97,7 +97,7 @@ class Item_to_process:
 
             # S'il trouve sur TMDB on remplace
             if titre_verifie:
-                titre, type = titre_verifie
+                titre, type, movie_year = titre_verifie
 
             # Si ca ne fonctionne pas on essaie la recherche recursive
             else:
@@ -106,24 +106,25 @@ class Item_to_process:
                 if recherche_recursive:
                     titre, type = recherche_recursive
 
-            self.move_file(titre, type, movie_year)
+
+            titre = titre.replace(':', ' ')
+
+            # On deplaces avec les valeurs finales
+            self.move_file(titre, type, None, movie_year)
 
         # Si les regex n'ont pas trouve de series ou film on fait une recherche recursive sur tmdb.org
         if titre == None:
             purified_name = self.purify(self._nom_fichier)
             self.recursive_verify(purified_name)
 
-        # S'il ne trouve rien, on abandone
-        if titre == None:
-            print('Toutes les methodes de recherches ont echouees')
+        # Si rien ne fonctionne on envoie au purgatoire
+        if type == None and self._nom_fichier != os.path.basename(
+                __file__) and self._extension not in self.indesirables:
 
-            if type_detecte == None and self._nom_fichier != os.path.basename(
-                    __file__) and self._extension not in self.indesirables:
+            print('Type non-detecte, au purgatoire: ' + self._nom_fichier)
 
-                print('Type non-detecte, au purgatoire: ' + self._nom_fichier)
-
-                if simulation == False:
-                    rename(self._path_complet, path.join(dossier_purgatoire, self._nom_fichier))
+            if simulation == False:
+                rename(self._path_complet, path.join(dossier_purgatoire, self._nom_fichier))
 
     def purify(self, titre):
 
@@ -175,6 +176,8 @@ class Item_to_process:
 
                 serie_title = resultat_0['original_name']
 
+
+
                 if debug:
                     print('themoviedb.org detecte {} {} '.format(serie_title, type_detecte))
 
@@ -190,9 +193,9 @@ class Item_to_process:
                 release_year = release_date[:4]
                 movie_title = resultat_0['title']
                 if debug:
-                    print('themoviedb.org detecte {} {} '.format(type_detecte, movie_title))
+                    print('themoviedb.org detecte {} {} '.format(type_detecte, movie_title, release_year))
 
-                resultat_recherche_api = (movie_title, type_detecte)
+                resultat_recherche_api = (movie_title, type_detecte, release_year)
                 return resultat_recherche_api
 
             elif resultat_0['media_type'] == 'person':
@@ -278,14 +281,14 @@ class Item_to_process:
                 break
 
         if resultat_final:
-
-            print('Recherche recursive retourne', resultat_final)
+            if debug:
+                print('Recherche recursive retourne', resultat_final)
             return resultat_final
 
 
         else:
-
-            print('Recherche recursive ne retourne rien')
+            if debug:
+                print('Recherche recursive ne retourne rien')
             return None
 
     def move_file(self, titre, type, season_episode=None, movie_year=None):
@@ -293,13 +296,39 @@ class Item_to_process:
         if type == 'Serie':
 
             # nom final du fichier
-            series_complete_title = '{} {}{}'.format(titre, season_episode, self._extension)
+            if season_episode:
+                series_complete_title = '{} {}{}'.format(titre, season_episode, self._extension)
+            else:
+                episode_number = 1
+                series_complete_title = '{} E01{}'.format(titre, self._extension)
 
             # sous dossier de saison
-            seasons_folder = 'Season {}'.format(season_episode[1:3])
+            if season_episode:
+                seasons_folder = 'Season {}'.format(season_episode[1:3])
+            else:
+                seasons_folder = 'Season 01'
 
             # path complet de destination pour l'item
             series_pathto = os.path.join(dossier_series, titre, seasons_folder, series_complete_title)
+
+            if os.path.isfile(series_pathto):
+                while True:
+
+                    episode_number += 1
+
+                    if episode_number < 10:
+                        episode_number_str = '0' + str(episode_number)
+                    else:
+                        episode_number_str = episode_number
+
+                    series_complete_title = '{} {}{}'.format(titre, episode_number_str, self._extension)
+
+                    series_pathto = os.path.join(dossier_series, titre, seasons_folder, series_complete_title)
+
+                    if not os.path.isfile(series_pathto):
+                        break
+
+
 
             # Si le dossier qui contient la saison n'existe pas, on le cree et finalement on deplace vers celui-ci
             path_dossier_season = os.path.join(dossier_series, titre, seasons_folder)
@@ -350,7 +379,7 @@ class Item_to_process:
 debug = False
 
 # Mode simulation = Aucunes manipulations sur les fichiers
-simulation = True
+simulation = False
 
 if simulation == True:
     print('***Mode Simulation Actif***')
@@ -380,6 +409,14 @@ if not os.path.isdir(dossier_purgatoire):
 
         os.makedirs(dossier_purgatoire)
 
+#Creation du dossier films s'il est manquant
+if not os.path.isdir(dossier_films):
+
+    print('Creation du dossier {}'.format(dossier_films))
+    if simulation == False:
+
+        os.makedirs(dossier_films)
+
 #iteration recursive dans l'arborescence source
 for racine, directories, fichiers in root:
 
@@ -393,10 +430,12 @@ for racine, directories, fichiers in root:
 
             individu = Item_to_process(fichier, racine)
 
+            # Purge des fichiers indesirables
             individu.purge()
 
-            if individu._extension not in individu.indesirables:
-                individu.classify()
+            if (individu._extension not in individu.indesirables):
+                if (individu._prefixe not in individu.indesirables):
+                    individu.classify()
 
 #On fait le menage des dossiers vides
 for dossier in os.listdir(source):
