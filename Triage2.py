@@ -38,18 +38,12 @@ class Item_to_process:
         self.indesirables = ['.txt', '.nfo', '.jpg', '.sfv', '.ini', '.png', '.ts']
         # On remplace les points, tirets et les underscores par des espaces
 
-    def purify(self, titre):
-
-        titre = titre.replace('.', ' ')
-        titre = titre.replace('_', ' ')
-        titre = titre.replace('-', ' ')
-
-        return titre
-
     def classify(self):
 
         titre = None
         type = None
+        movie_year = None
+        season_episode = None
 
         # On detecte si c'est une serie televisee en detectant le pattern S01E02
         season_episode = re.search(r"[Ss]\d\d[Ee]\d\d", self._nom_fichier)
@@ -63,23 +57,27 @@ class Item_to_process:
 
             season_episode = season_episode.group()
             season_episode = season_episode.upper()
-            season_episode = string.capwords(season_episode)
 
-            titre = self._nom_fichier[:(index_debut-1)]
+            titre = self._nom_fichier[:(index_debut - 1)]
             titre = self.purify(titre)
-            print('Regex detecte', titre, type)
+            titre = string.capwords(titre)
+            if debug:
+                print('Regex detecte', titre, type)
+
+            # On contre-verifie sur TMDB
             titre_verifie = self.verify(titre)
 
+            # S'il retourne positif on remplace les donnees par celles recoltees
             if titre_verifie:
                 titre, type = titre_verifie
 
-                print(titre)
-                print(season_episode)
+            self.move_file(titre, type, season_episode)
 
         # Si aucunes series detectees, on detecte un film en trouvant une annee entre 1920 et 2029
         if titre == None:
             movie_year = re.search(r"(19[2-9][0-9]|20[0-2][0-9])", self._nom_fichier)
 
+        # S'il detecte une annee il pourra etre change pour une serie avec verification TMDB
         if movie_year:
 
             type = "Film"
@@ -88,120 +86,52 @@ class Item_to_process:
 
             movie_year = movie_year.group()
 
-            titre = str(self._nom_fichier[:index_debut-1])
+            titre = str(self._nom_fichier[:index_debut - 1])
             titre = self.purify(titre)
             titre = string.capwords(titre)
 
-            print('Regex detecte', titre, type)
+            if debug:
+                print('Regex detecte', titre, type)
 
             titre_verifie = self.verify(titre)
 
+            # S'il trouve sur TMDB on remplace
             if titre_verifie:
-
                 titre, type = titre_verifie
+
+            # Si ca ne fonctionne pas on essaie la recherche recursive
+            else:
+                recherche_recursive = self.recursive_verify(titre)
+                # S'il trouve, on remplace
+                if recherche_recursive:
+                    titre, type = recherche_recursive
+
+            self.move_file(titre, type, movie_year)
 
         # Si les regex n'ont pas trouve de series ou film on fait une recherche recursive sur tmdb.org
         if titre == None:
-
             purified_name = self.purify(self._nom_fichier)
             self.recursive_verify(purified_name)
 
+        # S'il ne trouve rien, on abandone
         if titre == None:
             print('Toutes les methodes de recherches ont echouees')
 
-
-        exit()
-
-
-
-
-
-
-
-
-
-        if type == 'Serie':
-
-            #On cherche la saison et l episode ex : S01E02
-            season_episode = re.search(r"[Ss]\d\d[Ee]\d\d", self._nom_fichier)
-            season_episode = season_episode.group()
-
-            #nom final du fichier
-            series_complete_title = '{} {}{}'.format(titre, season_episode, self._extension)
-
-            #sous dossier de saison
-            seasons_folder = 'Season {}'.format(season_episode[1:3])
-
-            #path complet de destination pour l'item
-            series_pathto = os.path.join(dossier_series, titre, seasons_folder, series_complete_title)
-
-            # Si le dossier qui contient la saison n'existe pas, on le cree et finalement on deplace vers celui-ci
-            path_dossier_season = os.path.join(dossier_series, titre, seasons_folder)
-            if os.path.isdir(path_dossier_season):
-
-                print(self._path_complet + '-->' + series_pathto)
-                if simulation == False:
-                    rename(self._path_complet, series_pathto)
-
-            else:
-
-                print('Creation du dossier ' + path_dossier_season)
-                print(self._path_complet + ' --> ' + series_pathto)
-                if simulation == False:
-                    os.makedirs(path_dossier_season)
-                    rename(self._path_complet, series_pathto)
-
-        if type == 'Film':
-
-
-
-
-
-            exit()
-
-            # Si aucunes series detectees, on detecte un film en trouvant une annee entre 1920 et 2029
-            if type == None:
-
-                resultat_film = re.search(r"\W(19[2-9][0-9]|20[0-2][0-9])", self._nom_fichier)
-
-                #Si le re.search retourne un resultat on extrapole l'annee et le titre du film
-                if resultat_film:
-
-                    type_detecte = "Film"
-
-                    index_debut, index_fin = resultat_film.span()
-
-                    movie_year = self._nom_fichier[(index_debut+1):index_fin]
-
-                    movie_title = str(self._nom_fichier[:index_debut])
-
-                    #On remplace les points par des espaces
-                    movie_title = movie_title.replace('.', ' ')
-
-                    print('Les Regex retournent le type Film et le titre ' + movie_title)
-
-                    # On contre-verifie le resultat par l'API de themoviedb.org
-                    movie_title = self.verify(movie_title)
-
-                    # dossier destination pour les films
-                    movies_pathto = ('{}\{} ({}){}'.format(dossier_films, movie_title, movie_year, self._extension))
-
-                    # Deplacement du film vers le dossier film
-                    print(self._path_complet + ' --> ' + movies_pathto)
-
-                    if simulation == False:
-
-                        rename(self._path_complet, movies_pathto)
-
-            if type_detecte == None and self._nom_fichier != os.path.basename(__file__) and self._extension not in self.indesirables:
+            if type_detecte == None and self._nom_fichier != os.path.basename(
+                    __file__) and self._extension not in self.indesirables:
 
                 print('Type non-detecte, au purgatoire: ' + self._nom_fichier)
 
                 if simulation == False:
-
                     rename(self._path_complet, path.join(dossier_purgatoire, self._nom_fichier))
 
+    def purify(self, titre):
 
+        titre = titre.replace('.', ' ')
+        titre = titre.replace('_', ' ')
+        titre = titre.replace('-', ' ')
+
+        return titre
 
     def verify(self, valeur_recherche):
 
@@ -245,7 +175,8 @@ class Item_to_process:
 
                 serie_title = resultat_0['original_name']
 
-                print('themoviedb.org detecte {} {} '.format(serie_title, type_detecte))
+                if debug:
+                    print('themoviedb.org detecte {} {} '.format(serie_title, type_detecte))
 
                 resultat_recherche_api = (serie_title, type_detecte)
 
@@ -258,17 +189,20 @@ class Item_to_process:
                 release_date = resultat_0['release_date']
                 release_year = release_date[:4]
                 movie_title = resultat_0['title']
+                if debug:
+                    print('themoviedb.org detecte {} {} '.format(type_detecte, movie_title))
 
-                print('themoviedb.org detecte {} {} '.format(type_detecte, movie_title))
-
-                return movie_title
+                resultat_recherche_api = (movie_title, type_detecte)
+                return resultat_recherche_api
 
             elif resultat_0['media_type'] == 'person':
-                print('Aucun resultat trouve sur themoviedb.org')
+                if debug:
+                    print('Aucun resultat trouve sur themoviedb.org')
                 return None
 
         else:
-            print('Aucun resultat trouve sur themoviedb.org')
+            if debug:
+                print('Aucun resultat trouve sur themoviedb.org')
             return None
 
     def recursive_verify(self, valeur_recherche):
@@ -286,7 +220,8 @@ class Item_to_process:
         while True:
 
             if resultat_regex_01:
-                print(resultat_regex_01.group())
+                if debug:
+                    print(resultat_regex_01.group())
                 resultat_verify = self.verify(resultat_regex_01.group())
 
                 if resultat_verify:
@@ -295,7 +230,8 @@ class Item_to_process:
                     break
 
             if resultat_regex_02:
-                print(resultat_regex_02.group())
+                if debug:
+                    print(resultat_regex_02.group())
                 resultat_verify = self.verify(resultat_regex_02.group())
 
                 if resultat_verify:
@@ -304,7 +240,8 @@ class Item_to_process:
                     break
 
             if resultat_regex_03:
-                print(resultat_regex_03.group())
+                if debug:
+                    print(resultat_regex_03.group())
                 resultat_verify = self.verify(resultat_regex_03.group())
 
                 if resultat_verify:
@@ -313,7 +250,8 @@ class Item_to_process:
                     break
 
             if resultat_regex_04:
-                print(resultat_regex_04.group())
+                if debug:
+                    print(resultat_regex_04.group())
                 resultat_verify = self.verify(resultat_regex_04.group())
 
                 if resultat_verify:
@@ -322,7 +260,8 @@ class Item_to_process:
                     break
 
             if resultat_regex_05:
-                print(resultat_regex_05.group())
+                if debug:
+                    print(resultat_regex_05.group())
                 resultat_verify = self.verify(resultat_regex_05.group())
                 if resultat_verify:
                     resultat_final = resultat_verify
@@ -330,7 +269,8 @@ class Item_to_process:
                     break
 
             if resultat_regex_06:
-                print(resultat_regex_06.group())
+                if debug:
+                    print(resultat_regex_06.group())
                 resultat_verify = self.verify(resultat_regex_06.group())
                 if resultat_verify:
                     resultat_final = resultat_verify
@@ -339,12 +279,54 @@ class Item_to_process:
 
         if resultat_final:
 
+            print('Recherche recursive retourne', resultat_final)
             return resultat_final
 
 
         else:
+
+            print('Recherche recursive ne retourne rien')
             return None
 
+    def move_file(self, titre, type, season_episode=None, movie_year=None):
+
+        if type == 'Serie':
+
+            # nom final du fichier
+            series_complete_title = '{} {}{}'.format(titre, season_episode, self._extension)
+
+            # sous dossier de saison
+            seasons_folder = 'Season {}'.format(season_episode[1:3])
+
+            # path complet de destination pour l'item
+            series_pathto = os.path.join(dossier_series, titre, seasons_folder, series_complete_title)
+
+            # Si le dossier qui contient la saison n'existe pas, on le cree et finalement on deplace vers celui-ci
+            path_dossier_season = os.path.join(dossier_series, titre, seasons_folder)
+            if os.path.isdir(path_dossier_season):
+
+                print(self._path_complet + '-->' + series_pathto)
+                if simulation == False:
+                    rename(self._path_complet, series_pathto)
+
+            else:
+
+                print('Creation du dossier ' + path_dossier_season)
+                print(self._path_complet + ' --> ' + series_pathto)
+                if simulation == False:
+                    os.makedirs(path_dossier_season)
+                    rename(self._path_complet, series_pathto)
+
+        if type == 'Film':
+
+            # dossier destination pour les films
+            movies_pathto = ('{}\{} ({}){}'.format(dossier_films, titre, movie_year, self._extension))
+
+            # Deplacement du film vers le dossier film
+            print(self._path_complet + ' --> ' + movies_pathto)
+
+            if simulation == False:
+                rename(self._path_complet, movies_pathto)
 
     def purge(self):
 
@@ -364,6 +346,8 @@ class Item_to_process:
 
                 if simulation == False:
                     os.rename(self._path_complet, self._purgatoire)
+
+debug = False
 
 # Mode simulation = Aucunes manipulations sur les fichiers
 simulation = True
@@ -411,7 +395,8 @@ for racine, directories, fichiers in root:
 
             individu.purge()
 
-            individu.classify()
+            if individu._extension not in individu.indesirables:
+                individu.classify()
 
 #On fait le menage des dossiers vides
 for dossier in os.listdir(source):
