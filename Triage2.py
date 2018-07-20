@@ -118,10 +118,21 @@ class Item_to_process:
 
             # S'il trouve sur TMDB on remplace
             if titre_verifie:
-                titre, type, movie_year, genre = titre_verifie
+                if titre_verifie[1] == 'Serie':
+                    print(titre_verifie)
+                    titre, type = titre_verifie
 
-                # On deplaces avec les valeurs finales
-                self.move_file(titre, type, None, movie_year, genre)
+                    # On deplaces avec les valeurs finales
+
+                    self.move_file(titre, type, season_episode, None, None)
+
+                elif titre_verifie[1] == 'Film':
+                    titre, type, movie_year, genre = titre_verifie
+
+                    # On deplaces avec les valeurs finales
+                    self.move_file(titre, type, None, movie_year, genre)
+
+
 
         # Si rien ne fonctionne on envoie au purgatoire
         if type == None and self._nom_fichier != os.path.basename(
@@ -298,6 +309,7 @@ class Item_to_process:
         if resultat_final:
             if debug:
                 print('Recherche recursive retourne', resultat_final)
+
             return resultat_final
 
 
@@ -310,21 +322,26 @@ class Item_to_process:
 
         if type == 'Serie':
 
+            seasons_folder = None
+
             # nom final du fichier
             if season_episode:
                 series_complete_title = '{} {}{}'.format(titre, season_episode, self._extension)
             else:
                 episode_number = 1
-                series_complete_title = '{} E01{}'.format(titre, self._extension)
+                series_complete_title = '{} 01{}'.format(titre, self._extension)
 
             # sous dossier de saison
             if season_episode:
                 seasons_folder = 'Season {}'.format(season_episode[1:3])
-            else:
-                seasons_folder = 'Season 01'
 
             # path complet de destination pour l'item
-            series_pathto = os.path.join(dossier_series, titre, seasons_folder, series_complete_title)
+            if seasons_folder:
+                series_pathto = os.path.join(dossier_series, titre, seasons_folder, series_complete_title)
+
+            else:
+                series_pathto = os.path.join(dossier_series, titre, series_complete_title)
+
 
             if os.path.isfile(series_pathto):
                 while True:
@@ -338,27 +355,34 @@ class Item_to_process:
 
                     series_complete_title = '{} {}{}'.format(titre, episode_number_str, self._extension)
 
-                    series_pathto = os.path.join(dossier_series, titre, seasons_folder, series_complete_title)
+                    series_pathto = os.path.join(dossier_series, titre, series_complete_title)
 
                     if not os.path.isfile(series_pathto):
                         break
 
-
-
             # Si le dossier qui contient la saison n'existe pas, on le cree et finalement on deplace vers celui-ci
-            path_dossier_season = os.path.join(dossier_series, titre, seasons_folder)
-            if os.path.isdir(path_dossier_season):
 
-                print(self._path_complet + '-->' + series_pathto)
-                if simulation == False:
-                    rename(self._path_complet, series_pathto)
+            if seasons_folder:
+                path_dossier_season = os.path.join(dossier_series, titre, seasons_folder)
+                if os.path.isdir(path_dossier_season):
+                    print(self._path_complet + '-->' + series_pathto)
+
+                    if simulation == False:
+                        rename(self._path_complet, series_pathto)
+
+                else:
+
+                    print('Creation du dossier ' + path_dossier_season)
+                    print(self._path_complet + ' --> ' + series_pathto)
+                    if simulation == False:
+                        os.makedirs(path_dossier_season)
+                        rename(self._path_complet, series_pathto)
 
             else:
 
-                print('Creation du dossier ' + path_dossier_season)
-                print(self._path_complet + ' --> ' + series_pathto)
+                print(self._path_complet + '-->' + series_pathto)
+
                 if simulation == False:
-                    os.makedirs(path_dossier_season)
                     rename(self._path_complet, series_pathto)
 
         if type == 'Film':
