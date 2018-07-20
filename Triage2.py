@@ -41,11 +41,8 @@ class Item_to_process:
 
     def classify(self):
 
-        titre = None
-        type = None
-        movie_year = None
-        season_episode = None
-        genre = None
+        # Declaration des variables
+        titre, type, movie_year, season_episode, genre = (None,None,None,None,None)
 
         # On detecte si c'est une serie televisee en detectant le pattern S01E02
         season_episode = re.search(r"[Ss]\d\d[Ee]\d\d", self._nom_fichier)
@@ -117,7 +114,14 @@ class Item_to_process:
         # Si les regex n'ont pas trouve de series ou film on fait une recherche recursive sur tmdb.org
         if titre == None:
             purified_name = self.purify(self._nom_fichier)
-            self.recursive_verify(purified_name)
+            titre_verifie = self.recursive_verify(purified_name)
+
+            # S'il trouve sur TMDB on remplace
+            if titre_verifie:
+                titre, type, movie_year, genre = titre_verifie
+
+                # On deplaces avec les valeurs finales
+                self.move_file(titre, type, None, movie_year, genre)
 
         # Si rien ne fonctionne on envoie au purgatoire
         if type == None and self._nom_fichier != os.path.basename(
@@ -360,7 +364,7 @@ class Item_to_process:
         if type == 'Film':
 
             # Nom final du fichier
-            title_final = '{} {}{}'.format(titre, movie_year, self._extension)
+            title_final = '{} ({}){}'.format(titre, movie_year, self._extension)
 
             # dossier destination pour le films, dependant du genre
             if genre:
@@ -405,10 +409,10 @@ class Item_to_process:
                     os.rename(self._path_complet, self._purgatoire)
 
 ##################################################################################
-debug = False
+debug = True
 
 # Mode simulation = Aucunes manipulations sur les fichiers
-simulation = False
+simulation = True
 ##################################################################################
 
 if simulation == True:
