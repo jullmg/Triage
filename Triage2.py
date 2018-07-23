@@ -15,7 +15,7 @@
 
 #Troubles :
 
-    #Parfois un espace a la fin de la variable movie_title
+    #Recherche recursive inclue l'extension du fichier
 
 
 import os, re, shutil, string, urllib.request, urllib.parse, json
@@ -103,10 +103,10 @@ class Item_to_process:
                 recherche_recursive = self.recursive_verify(titre)
                 # S'il trouve, on remplace
                 if recherche_recursive:
-                    titre, type = recherche_recursive
+                    titre, type, movie_year, genre = recherche_recursive
 
 
-            titre = titre.replace(':', ' ')
+            titre = titre.replace(':', '')
 
             # On deplaces avec les valeurs finales
             self.move_file(titre, type, None, movie_year, genre)
@@ -236,13 +236,22 @@ class Item_to_process:
 
     def recursive_verify(self, valeur_recherche):
 
+        resultat_regex_01 = re.search(r'[\w]+\s', valeur_recherche)
+        resultat_regex_02 = re.search(r'[\w]+\s[\w]+', valeur_recherche)
+        resultat_regex_03 = re.search(r'[\w]+\s[\w]+\s[\w]+', valeur_recherche)
+        resultat_regex_04 = re.search(r'[\w]+\s[\w]+\s[\w]+\s[\w]+', valeur_recherche)
+        resultat_regex_05 = re.search(r'[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+', valeur_recherche)
+        resultat_regex_06 = re.search(r'[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+',
+                                      valeur_recherche)
+
+        '''
         resultat_regex_01 = re.search(r'[a-zA-Z]+\s', valeur_recherche)
         resultat_regex_02 = re.search(r'[a-zA-Z]+\s[a-zA-Z]+', valeur_recherche)
         resultat_regex_03 = re.search(r'[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+', valeur_recherche)
         resultat_regex_04 = re.search(r'[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+', valeur_recherche)
         resultat_regex_05 = re.search(r'[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+', valeur_recherche)
         resultat_regex_06 = re.search(r'[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+\s[a-zA-Z]+',
-                                      valeur_recherche)
+                                      valeur_recherche) '''
 
         resultat_final = None
 
@@ -303,6 +312,7 @@ class Item_to_process:
                 resultat_verify = self.verify(resultat_regex_06.group())
                 if resultat_verify:
                     resultat_final = resultat_verify
+                    break
             else:
                 break
 
