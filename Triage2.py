@@ -12,13 +12,14 @@
     # Download subtitles
     # Classification par genre
     # Faire un GUI?
+    # Aller chercher le nom de l'episode si c'est une serie
 
 #Troubles :
 
     #Recherche recursive inclue l'extension du fichier
 
 
-import os, re, shutil, string, urllib.request, urllib.parse, json
+import os, re, shutil, string, urllib.request, urllib.parse, json, bs4 as bs
 
 from os import rename, path
 
@@ -47,6 +48,7 @@ class Item_to_process:
         # On detecte si c'est une serie televisee en detectant le pattern S01E02
         season_episode = re.search(r"[Ss]\d\d[Ee]\d\d", self._nom_fichier)
 
+
         # Si oui l'item sera DEFINITIVEMENT considere comme une serie
         if season_episode:
 
@@ -69,8 +71,14 @@ class Item_to_process:
             # S'il retourne positif on remplace les donnees par celles recoltees
             if titre_verifie:
                 titre, type = titre_verifie
+                self.move_file(titre, type, season_episode)
 
-            self.move_file(titre, type, season_episode)
+            # Si TMDB ne retourne rien on essaie IMDB
+            else:
+                titre_imdb = self.search_imdb(titre)
+                if titre_imdb:
+                    titre = titre_imdb
+                    self.move_file(titre, type, season_episode)
 
         # Si aucunes series detectees, on detecte un film en trouvant une annee entre 1920 et 2029
         if titre == None:
@@ -98,21 +106,27 @@ class Item_to_process:
             if titre_verifie:
                 titre, type, movie_year, genre = titre_verifie
 
-            # Si ca ne fonctionne pas on essaie la recherche recursive
-            else:
+            # Sinon on essaie la recherche recursive
+            elif not titre_verifie:
                 recherche_recursive = self.recursive_verify(titre)
                 # S'il trouve, on remplace
                 if recherche_recursive:
                     titre, type, movie_year, genre = recherche_recursive
 
-
-            titre = titre.replace(':', '')
+            # Si la recherche recursive ne fonctionne pas on essaie sur IMDB
+            elif not recherche_recursive:
+                result_search_imdb = self.search_imdb(titre)
+                if result_search_imdb:
+                    titre = result_search_imdb
 
             # On deplaces avec les valeurs finales
             self.move_file(titre, type, None, movie_year, genre)
 
         # Si les regex n'ont pas trouve de series ou film on fait une recherche recursive sur tmdb.org
         if titre == None:
+
+            if debug:
+                print('Les REGEX n\'ont pas fonctionne pour', self._nom_fichier, 'On essaie une recherche recursive')
             purified_name = self.purify(self._nom_fichier)
             titre_verifie = self.recursive_verify(purified_name)
 
@@ -150,6 +164,45 @@ class Item_to_process:
         titre = titre.replace('-', ' ')
 
         return titre
+
+    def search_imdb(self, valeur_recherche):
+
+        search_values_imdb = {'q': valeur_recherche}
+
+        # Encode le dictionnaire (percent-encoded ASCII text string (ex: %20 au lieu des espace))
+        search_data = urllib.parse.urlencode(search_values_imdb)
+
+        # Encode UTF-8
+        search_data = search_data.encode('utf-8')
+
+        url = 'https://www.imdb.com/find?'
+
+        #Spoof du header
+        header = {}
+        header['User-Agent'] = 'Mozilla/5.0 (X11; U; Linux i686) Gecko/20071127 Firefox/2.0.0.11'
+
+        req = urllib.request
+        req = req.Request(url, headers=header)
+
+        resp = urllib.request.urlopen(req, search_data).read()
+
+        soup = bs.BeautifulSoup(resp, 'lxml')
+
+        result = soup.find_all(class_='findResult odd')
+
+        if result:
+            result = result[0].text
+
+            year = re.search(r"(19[2-9][0-9]|20[0-2][0-9])", result)
+
+            span_start, span_end = year.span()
+            titre = result[5:span_start - 2]
+
+
+            if debug:
+                print('IMDB retourne',titre)
+
+            return titre
 
     def verify(self, valeur_recherche):
 
@@ -191,14 +244,11 @@ class Item_to_process:
             #Le premier item de la liste est le resultat le plus 'revelant'
             resultat_0 = resultats[0]
 
-
             if resultat_0['media_type'] == 'tv':
 
                 type_detecte = 'Serie'
 
                 serie_title = resultat_0['original_name']
-
-
 
                 if debug:
                     print('themoviedb.org detecte {} {} '.format(serie_title, type_detecte))
@@ -235,6 +285,9 @@ class Item_to_process:
             return None
 
     def recursive_verify(self, valeur_recherche):
+
+        if debug:
+            print('----------------------------DEBUT RECHERCHE RECURSIVE----------------------------')
 
         resultat_regex_01 = re.search(r'[\w]+\s', valeur_recherche)
         resultat_regex_02 = re.search(r'[\w]+\s[\w]+', valeur_recherche)
@@ -319,20 +372,24 @@ class Item_to_process:
         if resultat_final:
             if debug:
                 print('Recherche recursive retourne', resultat_final)
-
+                print('----------------------------FIN RECHERCHE RECURSIVE----------------------------')
             return resultat_final
 
 
         else:
             if debug:
                 print('Recherche recursive ne retourne rien')
+                print('----------------------------FIN RECHERCHE RECURSIVE----------------------------')
             return None
 
     def move_file(self, titre, type, season_episode=None, movie_year=None, genre=None):
 
+        titre = titre.replace(':', '')
+
         if type == 'Serie':
 
             seasons_folder = None
+            episode_number = 0
 
             # nom final du fichier
             if season_episode:
