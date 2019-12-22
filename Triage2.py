@@ -35,7 +35,7 @@ class Item_to_process:
 
         self._prefixe, self._extension = os.path.splitext(self._nom_fichier)
 
-        self._purgatoire = '{}\purgatoire\{}'.format(source, self._nom_fichier)
+        self._Purgatoire = '{}/Purgatoire/{}'.format(source, self._nom_fichier)
 
         self.indesirables = ['.txt', '.nfo', '.jpg', '.sfv', '.ini', '.png', '.ts', 'sample', 'Sample']
         # On remplace les points, tirets et les underscores par des espaces
@@ -58,6 +58,7 @@ class Item_to_process:
 
             season_episode = season_episode.group()
             season_episode = season_episode.upper()
+            print('Season_episode = ', season_episode)
 
             titre = self._nom_fichier[:(index_debut - 1)]
             titre = self.purify(titre)
@@ -148,14 +149,14 @@ class Item_to_process:
 
 
 
-        # Si rien ne fonctionne on envoie au purgatoire
+        # Si rien ne fonctionne on envoie au Purgatoire
         if type == None and self._nom_fichier != os.path.basename(
                 __file__) and self._extension not in self.indesirables:
 
-            print('Type non-detecte, au purgatoire: ' + self._nom_fichier)
+            print('Type non-detecte, au Purgatoire: ' + self._nom_fichier)
 
-            if simulation == False:
-                rename(self._path_complet, path.join(dossier_purgatoire, self._nom_fichier))
+            if not simulation:
+                rename(self._path_complet, path.join(dossier_Purgatoire, self._nom_fichier))
 
     def purify(self, titre):
 
@@ -223,10 +224,15 @@ class Item_to_process:
         search_data = urllib.parse.urlencode(search_values)
 
         # Encode ce string en UTF-8 (binaire)
-        search_data = search_data.encode('utf-8')
+        # search_data = search_data.encode('utf-8')
+
+        if debug:
+            print('valeur de recherche: ', valeur_recherche)
+            print('url_multi_search', url_multi_search)
+            print('search_data', search_data)
 
         # On fait la requete URL incluant les search_values a l'API de themoviedb.org
-        data_binaire = urllib.request.urlopen(url_multi_search, search_data)
+        data_binaire = urllib.request.urlopen(url_multi_search + search_data)
         data_binaire = data_binaire.read()
 
         # On decode l'information encodee UTF-8
@@ -234,7 +240,7 @@ class Item_to_process:
 
         # On transforme la string JSON en dictionnaire Python
         json_data = json.loads(data_string)
-        
+
         #On va chercher l'information si il ya des resultats
         if json_data['total_results'] > 0:
 
@@ -245,9 +251,7 @@ class Item_to_process:
             resultat_0 = resultats[0]
 
             if resultat_0['media_type'] == 'tv':
-
                 type_detecte = 'Serie'
-
                 serie_title = resultat_0['original_name']
 
                 if debug:
@@ -434,14 +438,14 @@ class Item_to_process:
                 if os.path.isdir(path_dossier_season):
                     print(self._path_complet + '-->' + series_pathto)
 
-                    if simulation == False:
+                    if not simulation:
                         rename(self._path_complet, series_pathto)
 
                 else:
 
                     print('Creation du dossier ' + path_dossier_season)
                     print(self._path_complet + ' --> ' + series_pathto)
-                    if simulation == False:
+                    if not simulation:
                         os.makedirs(path_dossier_season)
                         rename(self._path_complet, series_pathto)
 
@@ -449,7 +453,7 @@ class Item_to_process:
 
                 print(self._path_complet + '-->' + series_pathto)
 
-                if simulation == False:
+                if not simulation:
                     rename(self._path_complet, series_pathto)
 
         if type == 'Film':
@@ -477,27 +481,27 @@ class Item_to_process:
             # Deplacement du film vers le dossier film
             print(self._path_complet + ' --> ' + movies_pathto)
 
-            if simulation == False:
+            if not simulation:
                 rename(self._path_complet, movies_pathto)
 
     def purge(self):
 
-        if self._extension in self.indesirables and self._nom_fichier not in os.listdir('{}\purgatoire'.format(source)):
+        if self._extension in self.indesirables and self._nom_fichier not in os.listdir('{}Purgatoire'.format(source)):
 
             try:
 
                 print('supression du fichier: ' + self._nom_fichier)
 
-                if simulation == False:
+                if not simulation:
                     os.remove(self._path_complet)
 
 
             except PermissionError:
 
-                print('erreur de permission, deplacement au purgatoire')
+                print('erreur de permission, deplacement au Purgatoire')
 
-                if simulation == False:
-                    os.rename(self._path_complet, self._purgatoire)
+                if not simulation:
+                    os.rename(self._path_complet, self._Purgatoire)
 
 ##################################################################################
 debug = True
@@ -506,52 +510,43 @@ debug = True
 simulation = True
 ##################################################################################
 
-if simulation == True:
+if simulation:
     print('***Mode Simulation Actif***')
-
 else:
     print('***Mode Simulation Non-Actif, des actions seront posées!!***')
 
-source = 'd:\\downloads\\triage'
-
-#source = os.getcwd()
+source = '/home/julien/Downloads/Triage/'
 
 dossier_films = path.join(source, 'Films')
-
 dossier_series = path.join(source, 'Series')
-
-dossier_purgatoire  = path.join(source, 'Purgatoire')
-
-dossiers_base = ['Purgatoire','Films','Series']
+dossier_Purgatoire  = path.join(source, 'Purgatoire')
+dossiers_base = ['Purgatoire', 'Films', 'Series']
 
 root = os.walk(source)
 
-#Creation du dossier purgatoire s'il est manquant
-if not os.path.isdir(dossier_purgatoire):
+# Creation du dossier Purgatoire s'il est manquant
+if not os.path.isdir(dossier_Purgatoire):
+    print('Creation du dossier {}'.format(dossier_Purgatoire))
+    if not simulation:
+        os.makedirs(dossier_Purgatoire)
 
-    print('Creation du dossier {}'.format(dossier_purgatoire))
-    if simulation == False:
-
-        os.makedirs(dossier_purgatoire)
-
-#Creation du dossier films s'il est manquant
+# Creation du dossier films s'il est manquant
 if not os.path.isdir(dossier_films):
-
     print('Creation du dossier {}'.format(dossier_films))
-    if simulation == False:
-
+    if not simulation:
         os.makedirs(dossier_films)
 
-#iteration recursive dans l'arborescence source
+# Iteration recursive dans l'arborescence source
 for racine, directories, fichiers in root:
-
     for fichier in fichiers:
+        # On determine si le dossier racine contient du materiel deja classe dans les dossiers de base afin d'éviter
+        # de traiter 2 fois le même objet.
+        parse_dossier_racine = re.search(r"/(Series|Films|Purgatoire)", racine)
 
-        #On determine si le dossier racine contient du materiel deja classe dans les dossiers de base
-        parse_dossier_racine = re.search(r"\\(Series|Films|Purgatoire)", racine)
 
-        #Si le parse ne retourne rien on process l'item
-        if  parse_dossier_racine == None:
+
+        # Si le parse ne retourne rien on process l'item
+        if  not parse_dossier_racine:
 
             individu = Item_to_process(fichier, racine)
 
@@ -560,7 +555,14 @@ for racine, directories, fichiers in root:
 
             if (individu._extension not in individu.indesirables):
                 if (individu._prefixe not in individu.indesirables):
+
+                    if debug:
+                        print('\n\n\nTraitement du fichier', fichier)
+                        print('------------------------------------------------------------------------------')
                     individu.classify()
+                    print('\n\n')
+
+
 
 #On fait le menage des dossiers vides
 for dossier in os.listdir(source):
@@ -571,7 +573,7 @@ for dossier in os.listdir(source):
 
         print('Supression du dossier ' + (os.path.join(source, dossier)))
 
-        if simulation == False:
+        if not simulation:
 
             shutil.rmtree(os.path.join(source, dossier))
 
