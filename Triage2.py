@@ -1,27 +1,39 @@
-'''Version : 2.1 '''
+#!/usr/bin/env python
+
+'''Version : 2.2 '''
 
 #Changelog
 
 # 1.8 : Integre les expressions regulieres
 # 2.0 : Integre les requetes API sur themoviedb.org
 # 2.1 : Classe les films par genre
+# 2.2 : Transfert les items sur MediaCenter après traitement
 
 #a faire :
 
     # Faire un log decent
     # Download subtitles
     # Classification par genre
-    # Faire un GUI?
     # Aller chercher le nom de l'episode si c'est une serie
 
 #Troubles :
 
     #Recherche recursive inclue l'extension du fichier
 
+# Standard Library
+import os
+from os import path
+import re
+import string
+import subprocess
 
-import os, re, shutil, string, urllib.request, urllib.parse, json, bs4 as bs
+# 3rd party packages
+import shutil
+import urllib.request
+import urllib.parse
+import json
+import bs4 as bs
 
-from os import rename, path
 
 class Item_to_process:
 
@@ -69,9 +81,12 @@ class Item_to_process:
             # On contre-verifie sur TMDB
             titre_verifie = self.verify(titre)
 
+            if titre_verifie:
+                print('titre verifie:', titre_verifie)
+
             # S'il retourne positif on remplace les donnees par celles recoltees
             if titre_verifie:
-                titre, type = titre_verifie
+                titre, type, movie_year, genre = titre_verifie
                 self.move_file(titre, type, season_episode)
 
             # Si TMDB ne retourne rien on essaie IMDB
@@ -80,6 +95,12 @@ class Item_to_process:
                 if titre_imdb:
                     titre = titre_imdb
                     self.move_file(titre, type, season_episode)
+
+            if not titre_verifie:
+
+
+                titre_verifie = self.recursive_verify(titre)
+
 
         # Si aucunes series detectees, on detecte un film en trouvant une annee entre 1920 et 2029
         if titre == None:
@@ -135,7 +156,7 @@ class Item_to_process:
             if titre_verifie:
                 if titre_verifie[1] == 'Serie':
                     print(titre_verifie)
-                    titre, type = titre_verifie
+                    titre, type, movie_year, genre = titre_verifie
 
                     # On deplaces avec les valeurs finales
 
@@ -155,15 +176,21 @@ class Item_to_process:
 
             print('Type non-detecte, au Purgatoire: ' + self._nom_fichier)
 
-            if not simulation:
-                rename(self._path_complet, path.join(dossier_Purgatoire, self._nom_fichier))
+            if not simulation and operation_mode == "local":
+                os.rename(self._path_complet, path.join(dossier_Purgatoire, self._nom_fichier))
 
     def purify(self, titre):
 
+        # On remplace les caractères suivants par des espaces
         titre = titre.replace('.', ' ')
         titre = titre.replace('_', ' ')
         titre = titre.replace('-', ' ')
 
+        # On élimine tout ce qui est entre bracket
+        titre = re.sub('\[.*\]', '', titre)
+
+        if debug:
+            print('Titre purifié:', titre)
         return titre
 
     def search_imdb(self, valeur_recherche):
@@ -205,6 +232,10 @@ class Item_to_process:
 
             return titre
 
+        else:
+            if debug:
+                print('Aucun résultat trouvé sur IMDB')
+
     def verify(self, valeur_recherche):
 
         # L'index des genre_ids sur tmdb.org
@@ -222,7 +253,6 @@ class Item_to_process:
         
         # Encode le dictionnaire en str (percent-encoded ASCII text string)
         search_data = urllib.parse.urlencode(search_values)
-
         # Encode ce string en UTF-8 (binaire)
         # search_data = search_data.encode('utf-8')
 
@@ -257,20 +287,24 @@ class Item_to_process:
                 if debug:
                     print('themoviedb.org detecte {} {} '.format(serie_title, type_detecte))
 
-                resultat_recherche_api = (serie_title, type_detecte)
+                resultat_recherche_api = (serie_title, type_detecte, None, None)
 
                 return resultat_recherche_api
 
             elif resultat_0['media_type'] == 'movie':
+                movie_title, type_detecte, release_year, genre = None, None, None, None
 
                 type_detecte = 'Film'
 
                 release_date = resultat_0['release_date']
                 release_year = release_date[:4]
                 movie_title = resultat_0['title']
+                print(movie_title)
                 genre_id = resultat_0['genre_ids']
-                genre_id = genre_id[0]
-                genre = genre_ids[genre_id]
+
+                if genre_id:
+                    genre_id = genre_id[0]
+                    genre = genre_ids[genre_id]
 
                 if debug:
                     print('themoviedb.org detecte {} {} '.format(type_detecte, movie_title, release_year))
@@ -292,7 +326,7 @@ class Item_to_process:
 
         if debug:
             print('----------------------------DEBUT RECHERCHE RECURSIVE----------------------------')
-
+            print('Sujet: {}'.format(valeur_recherche))
         resultat_regex_01 = re.search(r'[\w]+\s', valeur_recherche)
         resultat_regex_02 = re.search(r'[\w]+\s[\w]+', valeur_recherche)
         resultat_regex_03 = re.search(r'[\w]+\s[\w]+\s[\w]+', valeur_recherche)
@@ -413,6 +447,12 @@ class Item_to_process:
             else:
                 series_pathto = os.path.join(dossier_series, titre, series_complete_title)
 
+            series_pathto_scp = os.path.join("Series", titre, seasons_folder, series_complete_title)
+            series_pathto_scp = mediacenter_destination + series_pathto_scp
+            series_pathto_scp = series_pathto_scp.replace(" ", "\ ")
+
+            if debug:
+                print("SCP Path =  {}".format(series_pathto_scp))
 
             if os.path.isfile(series_pathto):
                 while True:
@@ -436,25 +476,34 @@ class Item_to_process:
             if seasons_folder:
                 path_dossier_season = os.path.join(dossier_series, titre, seasons_folder)
                 if os.path.isdir(path_dossier_season):
-                    print(self._path_complet + '-->' + series_pathto)
+                    if operation_mode == 'local':
+                        print(self._path_complet + '-->' + series_pathto)
 
-                    if not simulation:
-                        rename(self._path_complet, series_pathto)
+                    if not simulation and operation_mode == "local":
+                        os.rename(self._path_complet, series_pathto)
 
                 else:
-
                     print('Creation du dossier ' + path_dossier_season)
-                    print(self._path_complet + ' --> ' + series_pathto)
-                    if not simulation:
+                    if operation_mode == 'local':
+                        print(self._path_complet + ' --> ' + series_pathto)
+                    if not simulation and operation_mode == "local":
                         os.makedirs(path_dossier_season)
-                        rename(self._path_complet, series_pathto)
+                        os.rename(self._path_complet, series_pathto)
 
             else:
+                if operation_mode == 'local':
+                    print(self._path_complet + '-->' + series_pathto)
+                if not simulation and operation_mode == "local":
+                    os.rename(self._path_complet, series_pathto)
 
-                print(self._path_complet + '-->' + series_pathto)
+            if operation_mode == "mediacenter":
+                print('Deplacement de {} par SSH vers MediaCenter'.format(self._path_complet))
+                subprocess.run(["scp", self._path_complet, series_pathto_scp])
 
-                if not simulation:
-                    rename(self._path_complet, series_pathto)
+                try:
+                    os.remove(self._path_complet)
+                except:
+                    print('Error deleting {}'.format(self._path_complet))
 
         if type == 'Film':
 
@@ -463,51 +512,95 @@ class Item_to_process:
 
             # dossier destination pour le films, dependant du genre
             if genre:
-                path_final = '{}\{}'.format(dossier_films,genre)
+                path_final = '{}/{}'.format(dossier_films,genre)
 
             # Si aucun genre, on envoie dans Other
             else:
-                path_final = '{}\Other'.format(dossier_films)
+                path_final = '{}/Other'.format(dossier_films)
 
             #Creation du dossier de genre si inexistant
             if not os.path.isdir(path_final):
                 print('Creation du dossier', path_final)
 
-                if not simulation:
+                if not simulation and operation_mode == "local":
                     os.mkdir(path_final)
 
-            movies_pathto = ('{}\{}'.format(path_final, title_final))
+            movies_pathto = ('{}/{}'.format(path_final, title_final))
+
+            movies_pathto_scp = os.path.join("Films", genre if genre else "Other", title_final)
+            movies_pathto_scp = mediacenter_destination + movies_pathto_scp
+            movies_pathto_scp = movies_pathto_scp.replace(" ", "\ ")
+            movies_pathto_scp = movies_pathto_scp.replace("(", "\(")
+            movies_pathto_scp = movies_pathto_scp.replace(")", "\)")
+
+            if debug:
+                print("Movies path to scp: {}".format(movies_pathto_scp))
+
 
             # Deplacement du film vers le dossier film
-            print(self._path_complet + ' --> ' + movies_pathto)
+            if operation_mode == 'local':
+                print(self._path_complet + ' --> ' + movies_pathto)
 
-            if not simulation:
-                rename(self._path_complet, movies_pathto)
+            if not simulation and operation_mode == "local" and operation_mode == "local":
+                os.rename(self._path_complet, movies_pathto)
+
+            if operation_mode == "mediacenter":
+                #Verification de l'existance du dossier destination
+
+                print('Deplacement de {} par SSH vers MediaCenter'.format(self._path_complet))
+                message = subprocess.run(["scp", self._path_complet, movies_pathto_scp])
+
+                # S'il y a un problème lors du transfert SCP on essaye de creer le directory:
+                if message.returncode != 0:
+
+                # try:
+                #     os.remove(self._path_complet)
+                # except:
+                #     print('Error deleting {}'.format(self._path_complet))
 
     def purge(self):
+        file_info = os.stat(path.join(self._location,self._nom_fichier))
+        file_size = file_info.st_size / 1e6
 
-        if self._extension in self.indesirables and self._nom_fichier not in os.listdir('{}Purgatoire'.format(source)):
+        if debug:
+            print("file_size = {}MB".format(file_size))
 
+        if file_size < 100 and self._extension != '.srt':
             try:
-
-                print('supression du fichier: ' + self._nom_fichier)
-
-                if not simulation:
+                print('supression du fichier: {} car il est un trop petit ({}MB)\n\n'.format(fichier, file_size))
+                if not simulation and operation_mode == "local":
                     os.remove(self._path_complet)
+            except PermissionError:
+                print('erreur de permission, deplacement au Purgatoire')
 
+                if not simulation and operation_mode == "local":
+                    os.rename(self._path_complet, self._Purgatoire)
 
+            return True
+
+        elif self._extension in self.indesirables and self._nom_fichier not in os.listdir('{}Purgatoire'.format(source)):
+            try:
+                print('supression du fichier: {} car il est un indésirable\n\n'.format(fichier))
+                if not simulation and operation_mode == "local":
+                    os.remove(self._path_complet)
             except PermissionError:
 
                 print('erreur de permission, deplacement au Purgatoire')
 
-                if not simulation:
+                if not simulation and operation_mode == "local":
                     os.rename(self._path_complet, self._Purgatoire)
+
+            return True
 
 ##################################################################################
 debug = True
 
+# mediacenter = Send to mediacenter, local = move file to local classification folders
+operation_mode = "mediacenter"
+
 # Mode simulation = Aucunes manipulations sur les fichiers
-simulation = True
+simulation = False
+
 ##################################################################################
 
 if simulation:
@@ -516,6 +609,7 @@ else:
     print('***Mode Simulation Non-Actif, des actions seront posées!!***')
 
 source = '/home/julien/Downloads/Triage/'
+mediacenter_destination = 'julien@192.168.0.100:/media/julien/Videos/'
 
 dossier_films = path.join(source, 'Films')
 dossier_series = path.join(source, 'Series')
@@ -527,13 +621,13 @@ root = os.walk(source)
 # Creation du dossier Purgatoire s'il est manquant
 if not os.path.isdir(dossier_Purgatoire):
     print('Creation du dossier {}'.format(dossier_Purgatoire))
-    if not simulation:
+    if not simulation and operation_mode == "local":
         os.makedirs(dossier_Purgatoire)
 
 # Creation du dossier films s'il est manquant
 if not os.path.isdir(dossier_films):
     print('Creation du dossier {}'.format(dossier_films))
-    if not simulation:
+    if not simulation and operation_mode == "local":
         os.makedirs(dossier_films)
 
 # Iteration recursive dans l'arborescence source
@@ -543,26 +637,20 @@ for racine, directories, fichiers in root:
         # de traiter 2 fois le même objet.
         parse_dossier_racine = re.search(r"/(Series|Films|Purgatoire)", racine)
 
-
-
         # Si le parse ne retourne rien on process l'item
         if  not parse_dossier_racine:
+            if debug:
+                print('\n\nTraitement du fichier', fichier)
+                print('------------------------------------------------------------------------------')
 
             individu = Item_to_process(fichier, racine)
 
             # Purge des fichiers indesirables
-            individu.purge()
+            purged = individu.purge()
 
-            if (individu._extension not in individu.indesirables):
-                if (individu._prefixe not in individu.indesirables):
-
-                    if debug:
-                        print('\n\n\nTraitement du fichier', fichier)
-                        print('------------------------------------------------------------------------------')
-                    individu.classify()
-                    print('\n\n')
-
-
+            if not purged:
+                individu.classify()
+                print('\n\n')
 
 #On fait le menage des dossiers vides
 for dossier in os.listdir(source):
@@ -573,7 +661,7 @@ for dossier in os.listdir(source):
 
         print('Supression du dossier ' + (os.path.join(source, dossier)))
 
-        if not simulation:
+        if not simulation and operation_mode == "local":
 
             shutil.rmtree(os.path.join(source, dossier))
 
