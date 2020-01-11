@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/../../MediaCenter/.idea/Django_Mediacenter.iml" filepath="$PROJECT_DIR$/../../MediaCenter/.idea/Django_Mediacenter.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/Triage.iml" filepath="$PROJECT_DIR$/.idea/Triage.iml" />
     </modules>
   </component>

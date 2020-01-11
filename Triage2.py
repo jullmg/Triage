@@ -282,7 +282,7 @@ class Item_to_process:
 
                 return resultat_recherche_api
 
-            elif resultat_0['media_self.type'] == 'movie':
+            elif resultat_0['media_type'] == 'movie':
                 movie_title, self.type_detecte, release_year, genre = None, None, None, None
 
                 self.type_detecte = 'Film'
@@ -290,7 +290,6 @@ class Item_to_process:
                 release_date = resultat_0['release_date']
                 release_year = release_date[:4]
                 movie_title = resultat_0['title']
-                print(movie_title)
                 genre_id = resultat_0['genre_ids']
 
                 if genre_id:
@@ -621,7 +620,7 @@ debug = True
 operation_mode = "mediacenter"
 
 # Mode simulation = Aucunes manipulations sur les fichiers
-simulation = True
+simulation = False
 
 ##################################################################################
 
