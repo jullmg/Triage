@@ -232,7 +232,7 @@ class Item_to_process:
         # L'index des genre_ids sur tmdb.org
         genre_ids = {28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy', 80: 'Crime', 99: 'Documentary',
                      18: 'Drama', 14: 'Fantasy', 27: 'Horor', 36: 'History', 878: 'Science Fiction', 10752: 'War',
-                     10749: 'Romance'}
+                     10749: 'Romance', 53: 'Adventure'}
 
         # URL de base pour recherche multiple incluant films et series
         url_multi_search = 'https://api.themoviedb.org/3/search/multi?'
@@ -534,18 +534,24 @@ class Item_to_process:
         scp_success = False
         try_count = 0
 
+        destination = destination.replace("\'", "\\'")
+        
         while scp_success != True:
             print('Copie de {} par SSH vers MediaCenter'.format(source))
 
             # Verification de l'existance du dossier de destination
-            message = subprocess.run(["ssh", "julien@192.168.0.100", "ls", destination_folder])
+            print("destination = {}".format(destination))
+            print("source = {}".format(source))
 
-            # S`il n existe pas verification de l'existance du dossier superieur
+            message = subprocess.run(["ssh", "julien@192.168.0.100", "ls", destination_folder],
+                                     stdout=open(os.devnull, 'wb'))
+            # S`il n existe pas, verification de l'existance du dossier superieur
             if message.returncode != 0:
                 destination_folder_up = re.search(".*(?=\/.*$)", destination_folder)
                 destination_folder_up = destination_folder_up.group()
 
-                message = subprocess.run(["ssh", "julien@192.168.0.100", "ls", destination_folder_up])
+                message = subprocess.run(["ssh", "julien@192.168.0.100", "ls", destination_folder_up],
+                                         stdout=open(os.devnull, 'wb'))
 
                 #S'il le dossier superieur n'existe pas on le crée
                 if message.returncode != 0:
@@ -661,7 +667,7 @@ for racine, directories, fichiers in root:
         # Si le parse ne retourne rien on process l'item
         if  not parse_dossier_racine:
             if debug:
-                print('\n\nTraitement du fichier', fichier)
+                print('Traitement du fichier', fichier)
                 print('------------------------------------------------------------------------------')
 
             individu = Item_to_process(fichier, racine)
